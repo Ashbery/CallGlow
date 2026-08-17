@@ -29,10 +29,9 @@ CallGlow 用一條「手機 → BLE → 手錶」的私有通道繞過這個限�
 
 ## 預覽（來電中）
 
-<p align="center">
-  <img src="docs/screenshots/incoming-call.png" width="200" alt="來電畫面（銀河特效）" />
-  <img src="docs/screenshots/incoming-call-title.png" width="200" alt="來電畫面（文字配色）" />
-</p>
+![來電畫面（銀河特效）](docs/screenshots/incoming-call.png)
+
+![來電畫面（文字配色）](docs/screenshots/incoming-call-title.png)
 
 ## 與類似專案的差異
 
@@ -104,6 +103,17 @@ APK 輸出：`phone-app\app\build\outputs\apk\debug\app-debug.apk`、
 `sdk.dir=C\:\\Users\\<你的使用者>\\AppData\\Local\\Android\\Sdk`；
 此檔已加入 .gitignore。）
 
+## 直接安裝（免編譯，推薦）
+
+從 [Releases](https://github.com/Ashbery/CallGlow/releases) 下載最新 APK：
+
+| 檔案 | 安裝到 | 方式 |
+|---|---|---|
+| `CallGlow-Phone-v1.0.0.apk` | 手機（Android 11+） | 直接點擊安裝，或 `adb -s <手機序號> install -r CallGlow-Phone-v1.0.0.apk` |
+| `CallGlow-Watch-v1.0.0.apk` | 手錶（國行 ColorOS） | 手錶只能 adb 安裝：`adb -s <手錶序號> install -r CallGlow-Watch-v1.0.0.apk` |
+
+裝完照下面「安裝（adb）」章節做一次性設定（通知監聽、appops、ColorOS 白名單——**白名單必做**）。
+
 ## 安裝（adb）
 
 ```bat
@@ -161,8 +171,4 @@ LINE 需保持「來電通知」開啟；LINE 於前景時不貼未接通知（�
 ## 授權
 
 [MIT](LICENSE)。手錶 App 圖示（ic_disconnect_kawaii / launcher）為專案原創素材，隨本倉庫以 MIT 釋出。
-
-## 歷程
-
-T1 環境/藍牙探測 → T2 手機端 → T3 手錶端 → T4 整合 → T5 穩定化 → T6 設定畫面 →
-T7 視覺美化 → T8 真實頭像傳輸 → T9 震動模式/手勢/凍結自癒。詳見 docs/roadmap.md 與 docs/decisions.md。
+手錶字體 Yomogi 為 SIL OFL 1.1 授權（見 watch-app/LICENSE-Yomogi.txt）。

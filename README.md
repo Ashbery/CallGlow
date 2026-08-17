@@ -34,6 +34,15 @@ CallGlow 用一條「手機 → BLE → 手錶」的私有通道繞過這個限�
   <img src="docs/screenshots/incoming-call-title.png" width="200" alt="來電畫面（文字配色）" />
 </p>
 
+## 與類似專案的差異
+
+| 專案 | 差異 |
+|---|---|
+| [Gadgetbridge](https://gadgetbridge.org/) | 開源 BLE 通知/來電轉發，支援多款手環手錶，但**不支援 OPPO Watch ColorOS 系** |
+| [rickwangtw/LineNotificationSupport](https://github.com/rickwangtw/LineNotificationSupport) | 讓 LINE 通知相容 Samsung 智慧錶（GMS/Wear OS 系），不適用國行無 GMS 手錶 |
+| [witherredaway/notificationmirror](https://github.com/witherredaway/notificationmirror) | Wear OS 通知鏡像，依賴 Google 框架 |
+| **CallGlow（本專案）** | 唯一「手機監聽 LINE → 自建 BLE 私有通道 → 自製手錶 App」的國行 ColorOS 無 GMS 解法 |
+
 ## 已知限制
 
 - **接聽仍須用手機**：手錶只提醒，沒有接聽/掛斷按鈕（決策見 docs/decisions.md D14）

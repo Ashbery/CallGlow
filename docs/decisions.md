@@ -92,4 +92,5 @@ SettingsProvider 而定（有時要求 WRITE_SECURE_SETTINGS 而拒）→ 以 ad
 所有通知文字（來電/未接/斷線的標題、名字、副標、首字頭像）統一 **Yomogi** 手寫感日系字體
 （google/fonts，SIL OFL 1.1；res/font/yomogi_regular.ttf，授權檔 watch-app/LICENSE-Yomogi.txt；
 Fonts 物件以 resources.getFont 載入，API 26+ 原生，無 androidx 依賴）。
-名字最大字號 40sp → **34sp**（Activity 與 overlay 同步）。
+名字最大字號 40sp → 34sp → **28sp**（D16 二修：長英文名不出界；Activity 與 overlay 同步，
+autosize 12–28sp 自動縮放至屏寬 70% 內，min 12sp 可容納約 20 字元英文名）。

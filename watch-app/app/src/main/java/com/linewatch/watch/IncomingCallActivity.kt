@@ -184,13 +184,13 @@ class IncomingCallActivity : Activity() {
         Fonts.applyYomogi(this, avatarView, titleView, nameView, subtitleView)
     }
 
-    /** 名字 40sp、自動縮放至螢幕寬 70% 內（docs/ui-spec.md 圓形螢幕注意）。
+    /** 名字最大 28sp（D16 二修：長英文名不出界）、自動縮放至螢幕寬 70% 內；
      *  寬度約束：match_parent＋左右各 15% padding → 可用寬 = 70% 屏寬（密度自適應）；
-     *  不用 wrap_content＋maxWidth（該組合的 autosize 量測有已知怪癖，實測會恆持 40sp）。 */
+     *  不用 wrap_content＋maxWidth（該組合的 autosize 量測有已知怪癖）。 */
     private fun configureNameAutosize() {
         val pad = (resources.displayMetrics.widthPixels * 0.15f).toInt()
         nameView.setPadding(pad, 0, pad, 0)
-        nameView.setAutoSizeTextTypeUniformWithConfiguration(12, 34, 1, TypedValue.COMPLEX_UNIT_SP)
+        nameView.setAutoSizeTextTypeUniformWithConfiguration(12, 28, 1, TypedValue.COMPLEX_UNIT_SP)
     }
 
     private fun handleIntent(intent: Intent?) {

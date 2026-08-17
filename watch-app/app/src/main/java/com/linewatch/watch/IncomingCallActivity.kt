@@ -97,7 +97,8 @@ class IncomingCallActivity : Activity() {
             ringOuterView.animate().alpha(0.55f).setDuration(140L).start()
             ringInnerView.animate().alpha(0.15f).setDuration(140L).start()
             glowView.animate().alpha(0.6f).setDuration(140L).start()
-            subtitleView.animate().alpha(1f).setDuration(140L).start()   // D17.8：副標隨節拍亮
+            // D17.9：副標心跳脈動（微放大＋漸亮，柔和）
+            subtitleView.animate().alpha(1f).scaleX(1.06f).scaleY(1.06f).setDuration(240L).start()
             handler.postDelayed(beatDim, beatOnMs)
         }
     }
@@ -107,7 +108,7 @@ class IncomingCallActivity : Activity() {
             ringOuterView.animate().alpha(0.15f).setDuration(200L).start()
             ringInnerView.animate().alpha(0.55f).setDuration(200L).start()
             glowView.animate().alpha(0.2f).setDuration(200L).start()
-            subtitleView.animate().alpha(0.45f).setDuration(200L).start()   // D17.8：副標隨節拍暗
+            subtitleView.animate().alpha(0.72f).scaleX(1f).scaleY(1f).setDuration(320L).start()
             handler.postDelayed(beatBright, beatOffMs)
         }
     }
@@ -463,6 +464,8 @@ class IncomingCallActivity : Activity() {
             titleView.alpha = 1f
             nameView.alpha = 1f
             subtitleView.alpha = 1f
+            subtitleView.scaleX = 1f
+            subtitleView.scaleY = 1f
         }
         starfieldBgView.stopStars()   // 靜止為極淡靜態星空（alpha 0.15）
         rippleView.stopRipples()      // 漣漪停止（靜態背景）

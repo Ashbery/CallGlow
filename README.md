@@ -107,13 +107,31 @@ APK 輸出：`phone-app\app\build\outputs\apk\debug\app-debug.apk`、
 `sdk.dir=C\:\\Users\\<你的使用者>\\AppData\\Local\\Android\\Sdk`；
 此檔已加入 .gitignore。）
 
-## 一鍵安裝（最簡單）
+## 一鍵安裝（零經驗適用，最簡單）
 
-1. 到 [Releases](https://github.com/Ashbery/CallGlow/releases) 下載 **CallGlow-v1.0.0-安裝包.zip**
-2. 解壓縮，手機＋手錶都接上電腦（USB 偵錯開著）
-3. 雙擊 **install.bat** ——自動完成：偵測裝置 → 裝手機/手錶 APK → 授權 → 通知監聽 → ColorOS 白名單 → 啟動手錶服務
+### 事前準備（只需一次）
 
-> 安裝前需在手機/手錶開啟「USB 偵錯」；電腦需安裝 [platform-tools](https://developer.android.com/tools/releases/platform-tools)（adb 在 PATH 中）。
+1. 電腦安裝 [platform-tools](https://developer.android.com/tools/releases/platform-tools)（adb）。
+   最簡單的方式：解壓縮後把本安裝包裡的 install.bat 複製進 platform-tools 資料夾。
+2. 手機與手錶都開啟 **USB 偵錯**：
+   - 手機：設定 → 關於手機 → 連點「版本號」7 次 → 設定 → 開發者選項 → 開啟「USB 偵錯」
+   - 手錶：手錶設定 → 關於 → 連點「版本號」7 次 → 開發者選項 → 開啟「USB 偵錯」
+
+### 執行
+
+1. 到 [Releases](https://github.com/Ashbery/CallGlow/releases) 下載 **CallGlow-v1.0.0-安裝包.zip** 並解壓縮
+2. 手機＋手錶用 USB 線接上電腦，裝置跳出「允許 USB 偵錯」→ 勾選一律允許
+3. 雙擊 **install.bat**，跟著畫面的引導走完（自動完成 5 件事）：
+
+```
+[1] 偵測手機和手錶（找不到會教你先做什麼，可重試 5 次）
+[2] 安裝手機端 APP + 藍牙/通知權限
+[3] 開啟通知監聽（部分手機需手動勾選，程式會提示路徑）
+[4] 安裝手錶端 APP + 授權 + ColorOS 防凍結白名單（防斷線，必做）
+[5] 啟動手錶提醒服務
+```
+
+4. 完成後用另一支電話打 LINE 測試：來電 → 手錶持續震動＋顯示來電者。
 
 ## 直接安裝（免編譯，推薦）
 

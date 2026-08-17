@@ -56,7 +56,7 @@
 
 ## 專案設定
 - phone-app/ 與 watch-app/ 各自獨立 Gradle 專案
-- local.properties：sdk.dir=C:\\Users\\ashbe\\AppData\\Local\\Android\\Sdk
+- local.properties：sdk.dir=C:\\Users\\<你的使用者>\\AppData\\Local\\Android\\Sdk
 - 無 gradle-wrapper.jar（本機無法生成二進位）→ 寫好 gradle/wrapper/gradle-wrapper.properties，
   使用者以 Android Studio 開啟時自動補齊
 - 包名：com.linewatch.phone / com.linewatch.watch

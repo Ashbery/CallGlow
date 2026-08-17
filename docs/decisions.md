@@ -79,6 +79,13 @@ SettingsProvider 而定（有時要求 WRITE_SECURE_SETTINGS 而拒）→ 以 ad
    （VibratorController.rearmCall；自訂節奏重發同一波形，系統效果模式本有 700ms 循環自動續發）；
    SCREEN_ON 亦重掛一次。
 
+### D15 再修正（使用者實機二次測試，同日）——CALLING 與通知類分開
+- CALLING（對方未掛斷）：息屏**不**隱藏來電畫面，每次抬腕都重新顯示，震動持續到接通/掛斷。
+- MISSED/DISCONNECTED（通知類）：維持「顯示一次」——息屏即隱藏、抬腕不再重顯。
+- 系統通知列衝突：抬腕時 ColorOS 會優先顯示系統通知列，第三方 App 無法搶奪該優先權
+  （系統層行為）；我們的 Activity 於 SCREEN_ON 後重新啟動、以 showWhenLocked 蓋上，
+  來電中使用者仍會看到來電畫面。
+
 ### D15 修正（使用者第二次回饋，同日）
 1. 未接/斷線畫面：**不是**一直顯示——「看過一次」原則：息屏即隱藏（HIDE_UI）、再抬腕不重顯示；
    若螢幕持續亮著未熄 → **8s 自動關閉**或右滑提前關（兩者皆保留）。

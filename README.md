@@ -1,23 +1,46 @@
-# CallGlow — LINE 來電手錶持續提醒系統
+# CallGlow — 國行 OPPO 手錶的 LINE 來電通知解決方案
 
-中國版 ColorOS Watch（OPPO Watch X3 / OWW261）在收到 LINE 語音／視訊來電時，
-「持續震動＋全螢幕顯示來電者」，直到來電結束（接聽／拒絕／超時／未接）。
-手錶只負責明顯提醒、不接聽。全程不依賴 GMS／Google Play services。
+## 為什麼需要這個專案？
+
+**國行（中國版）OPPO Watch／ColorOS Watch 沒有 Google 服務框架（GMS），
+因此「手錶上裝不了 LINE」——也就收不到 LINE 的來電通知。**
+
+市面上的 Wear OS 錶可以從 Play Store 裝 LINE 直接接電話，但國行 ColorOS 錶不行。
+CallGlow 用一條「手機 → BLE → 手錶」的私有通道繞過這個限制：
+
+> 手機上的 LINE 收到語音／視訊來電 → 手機端 App 用 NotificationListenerService
+> 讀到來電通知 → 透過 BLE（Nordic UART Service）即時推送到手錶 →
+> 手錶「持續震動＋全螢幕顯示來電者」，直到接聽／拒絕／超時／未接。
+
+手錶只負責**明顯提醒**、不接聽（接聽仍請用手機）；全程不依賴 GMS／Google Play services。
+
+| 情境 | 結果 |
+|---|---|
+| 國行 ColorOS Watch（無 GMS） | ✅ 可以收到 LINE 來電通知（本專案主場） |
+| Wear OS 錶（有 GMS） | 可直接裝 LINE，本專案非必要（但仍可用） |
 
 ## 硬體與環境
 
 | 項目 | 值 |
-|---|---|
+| --- | --- |
 | 手錶 | OPPO Watch X3（OWW261），ColorOS Watch，Android 11（SDK 30），32-bit（armeabi-v7a），無 GMS |
 | 手機 | Android 11+ 任一手機（實測紅魔 11 Pro+ / Android 16；其他品牌需依各廠設定允許通知監聽＋後台運行） |
 | LINE | jp.naver.line.android（來電通知由 NotificationListenerService 讀取） |
+
+## 已知限制
+
+- **接聽仍須用手機**：手錶只提醒，沒有接聽/掛斷按鈕（決策見 docs/decisions.md D14）
+- LINE 在前景使用時不貼未接通知 → 未接畫面靠 5s 判定窗補送（protocol.md v1.1）
+- 系統通知列優先權：抬腕時 ColorOS 會先亮系統通知列，本 App 隨後蓋上（系統層行為，無法交換）
+- 手錶斷線根因（ColorOS 凍結第三方 App）與白名單解法見 docs/decisions.md D13
 
 ## 功能
 
 - LINE 語音／視訊來電 → 手錶持續震動＋全螢幕來電畫面（頭像、漣漪、星空動效）
 - 接聽／拒接／超時 → 立即停止；未接 → 顯示「LINE 未接來電：名字」，息屏即隱藏（看過一次不再重顯）、
   螢幕持續亮則 8s 自動關或右滑關閉
-- 震動持續到接通／掛斷（含息屏期間——ColorOS 息屏會取消 haptic，已自動重掛）；來電畫面抬腕顯示一次後不再重複亮起
+- 震動持續到接通／掛斷（含息屏期間——ColorOS 息屏會取消 haptic，已自動重掛）；
+  來電中每次抬腕都重新顯示來電畫面；未接通知只顯示一次（息屏即隱藏）
 - 通知文字統一 Yomogi 手寫感日系字體（SIL OFL）；名字最大 28sp、超長名字橫向滾動（marquee）
 - 銀河主題來電特效：極光星雲背景、光環隨震動節拍明滅＋自轉、螢幕邊緣呼吸光環、紫/青/洋紅漣漪
 - 真實頭像：LINE 通知 largeIcon → 壓縮 → BLE 分塊傳輸 → 手錶以名字為鍵快取（LRU ≤10 人）

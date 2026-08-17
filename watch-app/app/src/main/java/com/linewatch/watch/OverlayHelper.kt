@@ -92,6 +92,7 @@ object OverlayHelper {
             overlayRingOuter?.animate()?.alpha(0.55f)?.setDuration(140L)?.start()
             overlayRingInner?.animate()?.alpha(0.15f)?.setDuration(140L)?.start()
             overlayGlow?.animate()?.alpha(0.6f)?.setDuration(140L)?.start()
+            overlaySub?.animate()?.alpha(1f)?.setDuration(140L)?.start()   // D17.8
             handler.postDelayed(beatDimRunnable, overlayBeatOnMs)
         }
     }
@@ -101,6 +102,7 @@ object OverlayHelper {
             overlayRingOuter?.animate()?.alpha(0.15f)?.setDuration(200L)?.start()
             overlayRingInner?.animate()?.alpha(0.55f)?.setDuration(200L)?.start()
             overlayGlow?.animate()?.alpha(0.2f)?.setDuration(200L)?.start()
+            overlaySub?.animate()?.alpha(0.45f)?.setDuration(200L)?.start()   // D17.8
             handler.postDelayed(beatBrightRunnable, overlayBeatOffMs)
         }
     }
@@ -358,7 +360,7 @@ object OverlayHelper {
             Mode.DISCONNECTED -> COLOR_TEXT_SECONDARY
         }
         val titleColor = when (mode) {
-            Mode.CALL -> COLOR_TEXT_PRIMARY
+            Mode.CALL -> COLOR_LINE_GREEN      // D17.8：LINE 品牌綠（與白名字區分）
             Mode.MISSED -> COLOR_ALERT
             Mode.DISCONNECTED -> COLOR_TEXT_SECONDARY
         }
@@ -370,7 +372,7 @@ object OverlayHelper {
             Mode.DISCONNECTED -> context.getString(R.string.title_disconnected)
         }
         val subColor = when (mode) {
-            Mode.CALL -> COLOR_LINE_GREEN
+            Mode.CALL -> 0xFF18FFFF.toInt()   // D17.8：星雲青（與標題綠區分）
             else -> COLOR_TEXT_SECONDARY
         }
         val subText = when (mode) {
@@ -594,6 +596,7 @@ object OverlayHelper {
             overlayGlow?.alpha = 0.2f
             overlayTitle?.alpha = 1f
             overlayName?.alpha = 1f
+            overlaySub?.alpha = 1f
         }
         overlayStarfield?.stopStars()
         overlayRipple?.stopRipples()

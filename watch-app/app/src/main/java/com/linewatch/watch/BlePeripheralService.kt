@@ -33,6 +33,7 @@ import android.os.IBinder
 import android.graphics.BitmapFactory
 import android.os.Looper
 import android.os.ParcelUuid
+import android.os.PowerManager
 import android.util.Base64
 import android.util.Log
 import org.json.JSONObject
@@ -85,6 +86,27 @@ class BlePeripheralService : Service() {
     private var currentName: String = "未知聯絡人"
     private var currentKind: String = "voice"
 
+    // D15：息屏期間震動重掛（ColorOS 息屏取消 haptic → 5s 週期重掛直到接通/掛斷/亮屏）
+    private var screenOff = false
+    private var uiHiddenByScreenOff = false   // 通知畫面看過一次後息屏 → 抬腕不再重顯示
+    private val vibrationRearmRunnable = object : Runnable {
+        override fun run() {
+            if (callState == CallState.CALLING && screenOff) {
+                vibratorController.rearmCall()
+                mainHandler.postDelayed(this, Protocol.VIBRATION_REARM_MS)
+            }
+        }
+    }
+
+    private fun startVibrationRearmLoop() {
+        stopVibrationRearmLoop()
+        mainHandler.postDelayed(vibrationRearmRunnable, Protocol.VIBRATION_REARM_MS)
+    }
+
+    private fun stopVibrationRearmLoop() {
+        mainHandler.removeCallbacks(vibrationRearmRunnable)
+    }
+
     private val watchdog = Watchdog(Protocol.CALL_TIMEOUT_MS) { onWatchdogTimeout() }
     private val vibratorController by lazy { VibratorController(applicationContext) }
 
@@ -95,13 +117,48 @@ class BlePeripheralService : Service() {
     /** 目前正在顯示的狀態（CALL/MISSED/DISCONNECTED/null），用於 overlay 延遲檢查的競態防護。 */
     private var displayState: String? = null
 
-    /** 亮屏時重試 Activity 路徑（BAL 受限時 overlay 顯示中 → 亮屏後換 Activity）。 */
-    private val screenOnReceiver = object : BroadcastReceiver() {
+    /**
+     * 螢幕狀態接收（D15，2026-08-17 使用者實測裁決）：
+     * - SCREEN_ON：CALLING 中 → 重掛震動（ColorOS 息屏會取消第三方 haptic）；
+     *   uiHiddenByScreenOff=false 時才重試 Activity 路徑（BAL 受限時 overlay → 亮屏後換 Activity）
+     * - SCREEN_OFF：任何通知畫面（call/missed/disconnected）可見 → 發 HIDE_UI 結束畫面（不結束通話），
+     *   抬腕不再重顯示；CALLING 中另啟動週期性震動重掛（5s），直到接通/掛斷或亮屏
+     */
+    private val screenStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action != Intent.ACTION_SCREEN_ON) return
-            val st = displayState ?: return
-            if (st != Protocol.STATE_END && !IncomingCallActivity.isVisible) {
-                startCallActivity(st, currentName, currentKind)
+            when (intent.action) {
+                Intent.ACTION_SCREEN_ON -> {
+                    screenOff = false
+                    Protocol.logEvent("{\"t\":\"screen_on\",\"calling\":" + (callState == CallState.CALLING) + "}")
+                    if (callState == CallState.CALLING) {
+                        vibratorController.rearmCall()
+                        stopVibrationRearmLoop()
+                    }
+                    val st = displayState ?: return
+                    if (st != Protocol.STATE_END && !IncomingCallActivity.isVisible && !uiHiddenByScreenOff) {
+                        startCallActivity(st, currentName, currentKind)
+                    }
+                }
+                Intent.ACTION_SCREEN_OFF -> {
+                    screenOff = true
+                    Protocol.logEvent(
+                        "{\"t\":\"screen_off\",\"calling\":" + (callState == CallState.CALLING) +
+                            ",\"visible\":" + IncomingCallActivity.isVisible + ",\"state\":" + displayState + "}"
+                    )
+                    if (callState == CallState.CALLING) {
+                        // ColorOS 息屏會取消震動 → 立即重掛＋5s 週期重掛
+                        mainHandler.postDelayed({ vibratorController.rearmCall() }, 400L)
+                        startVibrationRearmLoop()
+                    }
+                    // 通知畫面（來電/未接/斷線）一律息屏即隱藏；下次抬腕不再顯示。
+                    // 注意：不可檢查 isVisible——onStop 先於 SCREEN_OFF 廣播執行，旗標已被清。
+                    // Activity 不存在時 HIDE_UI 為無害 no-op；receiver 註冊於 onCreate 才能收到。
+                    if (displayState != null && displayState != Protocol.STATE_END) {
+                        uiHiddenByScreenOff = true
+                        sendBroadcast(Intent(Protocol.ACTION_HIDE_UI).setPackage(packageName))
+                        OverlayHelper.dismiss()   // overlay 備援路徑同隱藏
+                    }
+                }
             }
         }
     }
@@ -129,7 +186,11 @@ class BlePeripheralService : Service() {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
         )
         workerHandler.post { setupBluetooth() }
-        registerReceiver(screenOnReceiver, IntentFilter(Intent.ACTION_SCREEN_ON))
+        // D15：SCREEN_ON + SCREEN_OFF（息屏隱藏來電畫面＋震動重掛）
+        val screenFilter = IntentFilter(Intent.ACTION_SCREEN_ON)
+        screenFilter.addAction(Intent.ACTION_SCREEN_OFF)
+        registerReceiver(screenStateReceiver, screenFilter)
+        screenOff = !(getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -176,8 +237,9 @@ class BlePeripheralService : Service() {
         OverlayHelper.dismissListener = null
         OverlayHelper.dismiss()
         cancelKeepAlive()
+        stopVibrationRearmLoop()
         try {
-            unregisterReceiver(screenOnReceiver)
+            unregisterReceiver(screenStateReceiver)
         } catch (_: IllegalArgumentException) {
         }
         workerHandler.removeCallbacks(advertiseSelfHealRunnable)
@@ -712,6 +774,7 @@ class BlePeripheralService : Service() {
         currentName = name
         currentKind = kind
         callState = CallState.CALLING
+        uiHiddenByScreenOff = false   // D15：新狀態重置「顯示一次」旗標
         abortAvatarSession()             // 新通來電 → 中止未完成頭像 session
         AvatarStore.clear()              // 清空前一通記憶體頭像
         if (AvatarStore.loadForName(name)) {
@@ -796,6 +859,7 @@ class BlePeripheralService : Service() {
             return
         }
         displayState = state
+        uiHiddenByScreenOff = false   // D15：每次新顯示（含未接/斷線）都可再顯示一次
         if (IncomingCallActivity.isVisible) return   // Activity 前台 → broadcast 已更新畫面
         // 主路徑：FGS startActivity（螢幕亮著時有效）
         startCallActivity(state, name, kind)

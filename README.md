@@ -1,4 +1,4 @@
-# LineCallWatch — LINE 來電手錶持續提醒系統
+# CallGlow — LINE 來電手錶持續提醒系統
 
 中國版 ColorOS Watch（OPPO Watch X3 / OWW261）在收到 LINE 語音／視訊來電時，
 「持續震動＋全螢幕顯示來電者」，直到來電結束（接聽／拒絕／超時／未接）。

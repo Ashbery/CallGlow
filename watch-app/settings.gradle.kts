@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "watch-app"
+rootProject.name = "CallGlowWatch"
 include(":app")

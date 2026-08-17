@@ -119,7 +119,7 @@ APK 輸出：`phone-app\app\build\outputs\apk\debug\app-debug.apk`、
 
 ### 執行
 
-1. 到 [Releases](https://github.com/Ashbery/CallGlow/releases) 下載 **CallGlow-v1.0.0-安裝包.zip** 並解壓縮
+1. 到 [Releases](https://github.com/Ashbery/CallGlow/releases) 下載 **CallGlow-v1.0.0-installer.zip** 並解壓縮
 2. 手機＋手錶用 USB 線接上電腦，裝置跳出「允許 USB 偵錯」→ 勾選一律允許
 3. 雙擊 **install.bat**，跟著畫面的引導走完（自動完成 5 件事）：
 
@@ -133,16 +133,11 @@ APK 輸出：`phone-app\app\build\outputs\apk\debug\app-debug.apk`、
 
 4. 完成後用另一支電話打 LINE 測試：來電 → 手錶持續震動＋顯示來電者。
 
-## 直接安裝（免編譯，推薦）
+## 直接安裝 APK
 
-從 [Releases](https://github.com/Ashbery/CallGlow/releases) 下載最新 APK：
-
-| 檔案 | 安裝到 | 方式 |
-|---|---|---|
-| `CallGlow-Phone-v1.0.0.apk` | 手機（Android 11+） | 直接點擊安裝，或 `adb -s <手機序號> install -r CallGlow-Phone-v1.0.0.apk` |
-| `CallGlow-Watch-v1.0.0.apk` | 手錶（國行 ColorOS） | 手錶只能 adb 安裝：`adb -s <手錶序號> install -r CallGlow-Watch-v1.0.0.apk` |
-
-裝完照下面「安裝（adb）」章節做一次性設定（通知監聽、appops、ColorOS 白名單——**白名單必做**）。
+從 [Releases](https://github.com/Ashbery/CallGlow/releases) 下載 **CallGlow-v1.0.0-installer.zip**，
+解壓縮後含手機/手錶兩支 APK 與一鍵安裝腳本（install.bat）。
+手機 APK 可直接點擊安裝；手錶 APK 需 adb 安裝（見下方「安裝（adb）」章節的一次性設定，含 ColorOS 白名單——**必做**）。
 
 ## 安裝（adb）
 

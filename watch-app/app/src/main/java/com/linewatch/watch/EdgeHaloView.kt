@@ -6,7 +6,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.SweepGradient
+import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.os.SystemClock
 import android.util.AttributeSet
@@ -14,17 +14,18 @@ import android.view.View
 import android.view.animation.LinearInterpolator
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.sin
 import kotlin.math.min
+import kotlin.math.sin
 import kotlin.random.Random
 
 /**
- * D17.1 銀河邊緣光帶（大廠質感）：不再是單一細線，而是四層組合——
- * 1) 寬柔光帶（10dp、alpha 0.10）：星雲底光，緊貼螢幕邊緣（離邊 1.5dp）
- * 2) 分段亮弧（4dp、sweep 漸層夾透明缺口）：星河感——紫/青/洋紅亮弧交錯、有暗有亮
- * 3) 細亮核心（2dp、同分段漸層）：銳利的高光線
- * 4) 星點：28 顆沿環分布的星光（大小/相位/色隨機、閃爍），隨光帶一起公轉
- * 整體 3s 呼吸（alpha 0.15→0.55）＋40s 自轉一圈。clipPath 內切圓防滲出。
+ * D17.2 星海邊緣（使用者回饋：線條光環太單調 → 改一圈星海）——
+ * 沿圓屏外圈一圈 70%–97% 半徑的環帶，無線條：
+ * 1) 星雲底霧：兩道極淡 radial 光暈（紫/青，alpha ≤0.06）當「銀河霧氣」
+ * 2) 微星 ×110：0.4–1.2dp 星點，白/淡紫/淡青/淡洋紅/淡金五色，各自閃爍
+ * 3) 亮星 ×16：1.6–2.8dp 大星＋十字星芒（四向漸隱射線），慢速閃爍
+ * 整體 3.5s 呼吸（alpha 0.2→0.6）＋ 48s 緩慢公轉（星海漂流感）。
+ * clipPath 內切圓防滲出；固定種子可重現。
  */
 class EdgeHaloView @JvmOverloads constructor(
     context: Context,
@@ -38,38 +39,36 @@ class EdgeHaloView @JvmOverloads constructor(
     private val density = resources.displayMetrics.density
     private val dp = { v: Float -> v * density }
 
-    // 四層畫筆
-    private val bandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = 10f * density
-    }
-    private val arcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = 4f * density
-    }
-    private val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = 2f * density
-    }
     private val starPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-
+    private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val rayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = dp(0.6f)
+        strokeCap = Paint.Cap.ROUND
+    }
     private val clipPath = Path()
-    private var bandGradient: SweepGradient? = null      // 全圈柔光（無缺口）
-    private var arcGradient: SweepGradient? = null       // 分段亮弧（夾透明缺口 → 星河感）
-    private var coreGradient: SweepGradient? = null
 
-    private var bandRadius = 0f
-    private var coreRadius = 0f
+    private var glowGradients: List<RadialGradient> = emptyList()
     private var angle = 0f
     private var breathe: ObjectAnimator? = null
     private var rotator: ValueAnimator? = null
 
-    private class Sparkle(val angleRad: Float, val radiusOffDp: Float, val sizeDp: Float, val baseAlpha: Float, val twinkleSpeed: Float, val color: Int)
-    private val sparkles = mutableListOf<Sparkle>()
+    private class Star(
+        val angleRad: Float,
+        val radiusRatio: Float,     // 0.70–0.97 屏半徑比例
+        val sizeDp: Float,
+        val baseAlpha: Float,
+        val twinkleSpeed: Float,
+        val color: Int,
+        val bright: Boolean,       // 亮星（帶十字星芒）
+    )
 
-    private val galaxyColors = intArrayOf(
-        0xFF7C4DFF.toInt(), 0xFF536DFE.toInt(), 0xFF29B6F6.toInt(),
-        0xFF18FFFF.toInt(), 0xFFE040FB.toInt(),
+    private val stars = mutableListOf<Star>()
+
+    // 星海五色（柔化：不刺眼的淡色星空）
+    private val starColors = intArrayOf(
+        0xFFFFFFFF.toInt(), 0xFFC9B8FF.toInt(), 0xFFA8F7FF.toInt(),
+        0xFFFFB8F0.toInt(), 0xFFFFE9B8.toInt(),
     )
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -78,52 +77,57 @@ class EdgeHaloView @JvmOverloads constructor(
         val cx = w / 2f
         val cy = h / 2f
         val inscribed = min(w, h) / 2f
-        bandRadius = (inscribed - dp(1.5f))          // 柔光帶貼近螢幕邊緣
-        coreRadius = (inscribed - dp(3f))            // 亮弧/核心稍內縮
-        // 柔光帶：全圈銀河漸層（低 alpha 打底）
-        bandGradient = SweepGradient(cx, cy, intArrayOf(
-            0x1A7C4DFF.toInt(), 0x1A29B6F6.toInt(), 0x1AE040FB.toInt(), 0x1A18FFFF.toInt(), 0x1A7C4DFF.toInt(),
-        ), null)
-        // 亮弧：三段星雲弧（紫/青/洋紅）＋三段透明缺口 → 星河不連續感
-        arcGradient = SweepGradient(cx, cy, intArrayOf(
-            0xAA7C4DFF.toInt(), 0x0018FFFF.toInt(), 0x99E040FB.toInt(), 0x0029B6F6.toInt(),
-            0xAA18FFFF.toInt(), 0x00536DFE.toInt(), 0xAA7C4DFF.toInt(),
-        ), null)
-        coreGradient = SweepGradient(cx, cy, intArrayOf(
-            0xCC7C4DFF.toInt(), 0x0018FFFF.toInt(), 0xCCE040FB.toInt(), 0x0029B6F6.toInt(),
-            0xCC18FFFF.toInt(), 0x00536DFE.toInt(), 0xCC7C4DFF.toInt(),
-        ), null)
+        // 星雲底霧：外圈兩團淡紫/淡青光暈（radial、極低 alpha）
+        glowGradients = listOf(
+            RadialGradient(cx + inscribed * 0.25f, cy - inscribed * 0.25f, inscribed * 0.9f,
+                intArrayOf(0x0F7C4DFF.toInt(), 0x067C4DFF.toInt(), 0x007C4DFF.toInt()),
+                null, Shader.TileMode.CLAMP),
+            RadialGradient(cx - inscribed * 0.3f, cy + inscribed * 0.2f, inscribed * 0.9f,
+                intArrayOf(0x0D18FFFF.toInt(), 0x0518FFFF.toInt(), 0x0018FFFF.toInt()),
+                null, Shader.TileMode.CLAMP),
+        )
         clipPath.reset()
         clipPath.addCircle(cx, cy, inscribed, Path.Direction.CW)
-        bandPaint.shader = bandGradient
-        arcPaint.shader = arcGradient
-        corePaint.shader = coreGradient
-        // 星點：固定種子可重現
+        // 星點生成（固定種子）
         val rnd = Random(20260817)
-        sparkles.clear()
-        for (i in 0 until 28) {
-            sparkles += Sparkle(
-                angleRad = (i * 2f * PI / 28f).toFloat() + (rnd.nextFloat() - 0.5f) * 0.2f,
-                radiusOffDp = (rnd.nextFloat() - 0.5f) * 7f,
-                sizeDp = 0.7f + rnd.nextFloat() * 1.6f,
-                baseAlpha = 0.25f + rnd.nextFloat() * 0.5f,
-                twinkleSpeed = 1.2f + rnd.nextFloat() * 2.6f,
-                color = galaxyColors[i % galaxyColors.size],
+        stars.clear()
+        // 微星 ×110
+        for (i in 0 until 110) {
+            stars += Star(
+                angleRad = rnd.nextFloat() * 2f * PI.toFloat(),
+                radiusRatio = 0.70f + rnd.nextFloat() * 0.27f,
+                sizeDp = 0.4f + rnd.nextFloat() * 0.8f,
+                baseAlpha = 0.25f + rnd.nextFloat() * 0.45f,
+                twinkleSpeed = 1.0f + rnd.nextFloat() * 2.8f,
+                color = starColors[i % starColors.size],
+                bright = false,
+            )
+        }
+        // 亮星 ×16（十字星芒）
+        for (i in 0 until 16) {
+            stars += Star(
+                angleRad = rnd.nextFloat() * 2f * PI.toFloat(),
+                radiusRatio = 0.76f + rnd.nextFloat() * 0.18f,
+                sizeDp = 1.6f + rnd.nextFloat() * 1.2f,
+                baseAlpha = 0.4f + rnd.nextFloat() * 0.4f,
+                twinkleSpeed = 0.5f + rnd.nextFloat() * 1.2f,
+                color = starColors[(i + 2) % starColors.size],
+                bright = true,
             )
         }
     }
 
     fun start() {
         if (breathe != null) return
-        alpha = 0.15f
-        breathe = ObjectAnimator.ofFloat(this, "alpha", 0.15f, 0.55f).apply {
-            duration = 3000L
+        alpha = 0.2f
+        breathe = ObjectAnimator.ofFloat(this, "alpha", 0.2f, 0.6f).apply {
+            duration = 3500L
             repeatMode = ObjectAnimator.REVERSE
             repeatCount = ObjectAnimator.INFINITE
             start()
         }
         rotator = ValueAnimator.ofFloat(0f, 360f).apply {
-            duration = 40_000L
+            duration = 48_000L
             repeatCount = ValueAnimator.INFINITE
             interpolator = LinearInterpolator()
             addUpdateListener { a ->
@@ -145,27 +149,40 @@ class EdgeHaloView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (rotator == null || coreRadius <= 0f) return
+        if (rotator == null || stars.isEmpty()) return
         val save = canvas.save()
         canvas.clipPath(clipPath)
         val cx = width / 2f
         val cy = height / 2f
-        canvas.rotate(angle, cx, cy)
-        // 1) 柔光帶 → 2) 亮弧 → 3) 核心線
-        canvas.drawCircle(cx, cy, bandRadius, bandPaint)
-        canvas.drawCircle(cx, cy, coreRadius, arcPaint)
-        canvas.drawCircle(cx, cy, coreRadius, corePaint)
-        // 4) 星點閃爍
+        val inscribed = min(width, height) / 2f
+        // 1) 星雲底霧
+        glowGradients.forEach { g ->
+            glowPaint.shader = g
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), glowPaint)
+        }
+        glowPaint.shader = null
+        // 2) 星點（隨公轉角）
+        val rad = Math.toRadians(angle.toDouble()).toFloat()
         val now = SystemClock.uptimeMillis() / 1000f
-        for (s in sparkles) {
-            val a = s.angleRad + Math.toRadians(angle.toDouble()).toFloat()
-            val r = coreRadius + dp(s.radiusOffDp)
+        for (s in stars) {
+            val a = s.angleRad + rad
+            val r = inscribed * s.radiusRatio
             val x = cx + cos(a) * r
             val y = cy + sin(a) * r
-            val twinkle = 0.5f + 0.5f * sin(now * s.twinkleSpeed + s.angleRad * 7f)
+            val tw = 0.55f + 0.45f * sin(now * s.twinkleSpeed + s.angleRad * 9f)
+            val alpha = (s.baseAlpha * tw * 255f).toInt().coerceIn(0, 255)
             starPaint.color = s.color
-            starPaint.alpha = (s.baseAlpha * twinkle * 255f).toInt().coerceIn(0, 255)
-            canvas.drawCircle(x, y, dp(s.sizeDp), starPaint)
+            starPaint.alpha = alpha
+            val size = dp(s.sizeDp)
+            canvas.drawCircle(x, y, size, starPaint)
+            if (s.bright) {
+                // 十字星芒：四向射線，長度隨閃爍相位伸縮
+                val rayLen = size * (2.2f + 1.8f * tw)
+                rayPaint.color = s.color
+                rayPaint.alpha = (alpha * 0.55f).toInt().coerceIn(0, 255)
+                canvas.drawLine(x - rayLen, y, x + rayLen, y, rayPaint)
+                canvas.drawLine(x, y - rayLen, x, y + rayLen, rayPaint)
+            }
         }
         canvas.restoreToCount(save)
     }

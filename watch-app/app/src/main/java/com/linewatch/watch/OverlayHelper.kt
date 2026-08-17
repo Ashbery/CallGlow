@@ -86,13 +86,27 @@ object OverlayHelper {
     // D17 節拍明滅（與震動同步）
     private var overlayBeatOnMs = 600L
     private var overlayBeatOffMs = 400L
+    // D17.10：副標柔光呼吸
+    private var subGlowRadius = 0f
+    private var subGlowAnimator: ValueAnimator? = null
+    private fun subGlowTo(target: Float, duration: Long) {
+        subGlowAnimator?.cancel()
+        subGlowAnimator = ValueAnimator.ofFloat(subGlowRadius, target).apply {
+            this.duration = duration
+            addUpdateListener { a ->
+                subGlowRadius = a.animatedValue as Float
+                overlaySub?.setShadowLayer(subGlowRadius, 0f, 0f, 0xFF18FFFF.toInt())
+            }
+            start()
+        }
+    }
     private val beatBrightRunnable: Runnable = object : Runnable {
         override fun run() {
             if (currentMode != Mode.CALL) return
             overlayRingOuter?.animate()?.alpha(0.55f)?.setDuration(140L)?.start()
             overlayRingInner?.animate()?.alpha(0.15f)?.setDuration(140L)?.start()
             overlayGlow?.animate()?.alpha(0.6f)?.setDuration(140L)?.start()
-            overlaySub?.animate()?.alpha(1f)?.scaleX(1.06f)?.scaleY(1.06f)?.setDuration(240L)?.start()   // D17.9 心跳脈動
+            subGlowTo(6f * android.content.res.Resources.getSystem().displayMetrics.density, 240L)   // D17.10
             handler.postDelayed(beatDimRunnable, overlayBeatOnMs)
         }
     }
@@ -102,7 +116,7 @@ object OverlayHelper {
             overlayRingOuter?.animate()?.alpha(0.15f)?.setDuration(200L)?.start()
             overlayRingInner?.animate()?.alpha(0.55f)?.setDuration(200L)?.start()
             overlayGlow?.animate()?.alpha(0.2f)?.setDuration(200L)?.start()
-            overlaySub?.animate()?.alpha(0.72f)?.scaleX(1f)?.scaleY(1f)?.setDuration(320L)?.start()
+            subGlowTo(2f * android.content.res.Resources.getSystem().displayMetrics.density, 320L)
             handler.postDelayed(beatBrightRunnable, overlayBeatOffMs)
         }
     }
@@ -597,8 +611,9 @@ object OverlayHelper {
             overlayTitle?.alpha = 1f
             overlayName?.alpha = 1f
             overlaySub?.alpha = 1f
-            overlaySub?.scaleX = 1f
-            overlaySub?.scaleY = 1f
+            subGlowAnimator?.cancel()
+            subGlowAnimator = null
+            overlaySub?.setShadowLayer(0f, 0f, 0f, 0)
         }
         overlayStarfield?.stopStars()
         overlayRipple?.stopRipples()

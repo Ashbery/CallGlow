@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- debug 變體專用（release 不含任何測試 receiver；docs/probe-report.md P7、test-plan.md v2.0 §3） -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!-- T3/T4 測試：adb broadcast 模擬手機送 end（走與 BLE end 相同狀態機） -->
+        <receiver
+            android:name="com.linewatch.watch.DebugEndReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.linewatch.watch.action.DEBUG_END" />
+            </intent-filter>
+        </receiver>
+
+        <!-- P7 背景啟動（BAL）隔離測試：
+             adb shell am broadcast -a com.linewatch.watch.action.TEST_BG_START (es 參數 name=背景測試) -->
+        <receiver
+            android:name="com.linewatch.watch.BgStartTestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.linewatch.watch.action.TEST_BG_START" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.WatchCall" parent="@android:style/Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@color/watch_black</item>
+        <item name="android:colorAccent">@color/line_green</item>
+        <item name="android:statusBarColor">@color/watch_black</item>
+        <item name="android:navigationBarColor">@color/watch_black</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+
+    <!-- v3.14：來電視窗半透明（右拖露出桌面，修拖動黑邊）；其餘沿用 Theme.WatchCall -->
+    <style name="Theme.WatchCall.Translucent" parent="Theme.WatchCall">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
+</resources>

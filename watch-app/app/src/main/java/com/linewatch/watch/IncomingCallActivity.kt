@@ -1,0 +1,483 @@
+package com.linewatch.watch
+
+import android.animation.ObjectAnimator
+import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.TypedValue
+import android.view.MotionEvent
+import android.view.View
+import android.view.WindowInsets
+import android.view.WindowInsetsController
+import android.view.WindowManager
+import android.widget.TextView
+
+/**
+ * 來電／未接／斷線提示畫面（docs/ui-spec.md 手錶端章節；同一 Activity 狀態切換）。
+ * - 全螢幕黑底＋KEEP_SCREEN_ON（finish 自動解除）
+ * - 來電：首字頭像＋脈動光圈＋「LINE 來電／LINE 視訊來電」20sp＋名字 40sp 自動縮放（70% 寬）＋「● 震動提醒中」
+ * - 未接：標題「LINE 未接來電」警示色 #FF8A65＋「對方可能已掛斷」＋8s 自動 finish
+ * - 斷線：「藍牙已斷線」
+ * - v2 視覺（roadmap V2-2/V2-3/V2-4-v1）：光圈 alpha 呼吸（僅來電態）、進場縮放/淡入（ObjectAnimator 級）
+ * - debug 深連結（T3/T4 測試）：
+ *   adb shell am start -n com.linewatch.watch/.IncomingCallActivity --es name 測試 --ez missed false
+ * - debug 停止（ColorOS 擋 shell 廣播 → 改深連結 extra 轉交 service）：
+ *   adb shell am start -n com.linewatch.watch/.IncomingCallActivity --ez debug_end true --ez missed false
+ */
+class IncomingCallActivity : Activity() {
+
+    companion object {
+        const val EXTRA_NAME = "name"
+        const val EXTRA_KIND = "kind"
+        const val EXTRA_MISSED = "missed"
+        const val EXTRA_FROM_SERVICE = "fromService"
+        const val EXTRA_DISCONNECTED = "disconnected"
+        // ColorOS 擋 shell 廣播（DEBUG_END broadcast 被拒）→ 以深連結 extra 轉交 service endCall
+        const val EXTRA_DEBUG_END = "debug_end"
+
+        /** Service 判斷 Activity 是否在前台（決定 broadcast 或 startActivity）。 */
+        @Volatile
+        var isVisible = false
+            private set
+    }
+
+    private lateinit var ringOuterView: View
+    private lateinit var ringInnerView: View
+    private lateinit var glowView: View
+    private lateinit var rippleView: RippleView
+    private lateinit var starfieldBgView: StarfieldView
+    private lateinit var avatarView: TextView
+    private lateinit var titleView: TextView
+    private lateinit var nameView: TextView
+    private lateinit var subtitleView: TextView
+
+    private val handler = Handler(Looper.getMainLooper())
+    private val vibratorController by lazy { VibratorController(applicationContext) }
+
+    private var callerName: String = ""
+    private var kind: String = "voice"
+    private val activeAnimators = mutableListOf<ObjectAnimator>()
+    private val textPulseRunnable = Runnable {
+        // 進場淡入（300ms）結束後才啟動文字微光，避免動畫打架
+        val t = ObjectAnimator.ofFloat(titleView, "alpha", 0.85f, 1f).apply {
+            duration = 1200L
+            repeatMode = ObjectAnimator.REVERSE
+            repeatCount = ObjectAnimator.INFINITE
+        }
+        val n = ObjectAnimator.ofFloat(nameView, "alpha", 0.85f, 1f).apply {
+            duration = 1200L
+            repeatMode = ObjectAnimator.REVERSE
+            repeatCount = ObjectAnimator.INFINITE
+        }
+        activeAnimators += t
+        activeAnimators += n
+        t.start()
+        n.start()
+    }
+    private var uiState: String = Protocol.STATE_CALL
+    private var avatarTint: Int = 0
+    private var dragStartRawX = 0f
+    private var dragStartRawY = 0f
+    private var dragging = false
+
+    private val finishRunnable = Runnable { finish() }
+
+    private val stateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == Protocol.ACTION_AVATAR) {
+                // T8：頭像到達 → 來電中才重新渲染
+                if (uiState == Protocol.STATE_CALL) renderAvatar()
+                return
+            }
+            if (intent.action != Protocol.ACTION_STATE) return
+            when (intent.getStringExtra(Protocol.EXTRA_STATE)) {
+                Protocol.STATE_CALL -> {
+                    callerName = intent.getStringExtra(EXTRA_NAME) ?: callerName
+                    kind = intent.getStringExtra(EXTRA_KIND) ?: kind
+                    showCall()
+                }
+                Protocol.STATE_MISSED -> {
+                    callerName = intent.getStringExtra(EXTRA_NAME) ?: callerName
+                    showMissed()
+                }
+                Protocol.STATE_END -> finish()
+                Protocol.STATE_DISCONNECTED -> showDisconnected()
+            }
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        callerName = getString(R.string.unknown_caller)
+        setContentView(R.layout.activity_incoming_call)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        hideSystemBars()
+        bindViews()
+        configureNameAutosize()
+        setupSwipeDismiss()
+        handleIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        isVisible = true
+        // Activity 可見 → overlay 備援不再需要（BAL 受限時 overlay 先顯示，亮屏後由此交還 Activity）
+        OverlayHelper.dismiss()
+        val filter = IntentFilter(Protocol.ACTION_STATE)
+        filter.addAction(Protocol.ACTION_AVATAR)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(stateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(stateReceiver, filter)
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        isVisible = false
+        try {
+            unregisterReceiver(stateReceiver)
+        } catch (_: IllegalArgumentException) {
+        }
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacks(finishRunnable)
+        cancelRingPulse()
+        super.onDestroy()
+    }
+
+    // ---------- UI ----------
+
+    private fun bindViews() {
+        ringOuterView = findViewById(R.id.ring_outer)
+        ringInnerView = findViewById(R.id.ring_inner)
+        glowView = findViewById(R.id.glow)
+        rippleView = findViewById(R.id.ripple)
+        starfieldBgView = findViewById(R.id.starfield_bg)
+        avatarView = findViewById(R.id.avatar)
+        titleView = findViewById(R.id.title)
+        nameView = findViewById(R.id.name)
+        subtitleView = findViewById(R.id.subtitle)
+    }
+
+    /** 名字 40sp、自動縮放至螢幕寬 70% 內（docs/ui-spec.md 圓形螢幕注意）。
+     *  寬度約束：match_parent＋左右各 15% padding → 可用寬 = 70% 屏寬（密度自適應）；
+     *  不用 wrap_content＋maxWidth（該組合的 autosize 量測有已知怪癖，實測會恆持 40sp）。 */
+    private fun configureNameAutosize() {
+        val pad = (resources.displayMetrics.widthPixels * 0.15f).toInt()
+        nameView.setPadding(pad, 0, pad, 0)
+        nameView.setAutoSizeTextTypeUniformWithConfiguration(12, 40, 1, TypedValue.COMPLEX_UNIT_SP)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+        val fromService = intent.getBooleanExtra(EXTRA_FROM_SERVICE, false)
+        val missed = intent.getBooleanExtra(EXTRA_MISSED, false)
+        intent.getStringExtra(EXTRA_NAME)?.takeIf { it.isNotBlank() }?.let { callerName = it }
+        intent.getStringExtra(EXTRA_KIND)?.takeIf { it.isNotBlank() }?.let { kind = it }
+        if (intent.getBooleanExtra(EXTRA_DEBUG_END, false)) {
+            // debug 測試手段（ColorOS 擋 am broadcast）：Activity 在前台，轉交 service 走 endCall
+            startService(
+                Intent(this, BlePeripheralService::class.java)
+                    .setAction(Protocol.ACTION_DEBUG_END)
+                    .putExtra("missed", missed)
+            )
+            if (missed) {
+                // 直接顯示未接畫面（8s 自動關）；震動由 service 統一負責
+                showMissed()
+            } else {
+                finish()
+            }
+            return
+        }
+        when {
+            intent.getBooleanExtra(EXTRA_DISCONNECTED, false) -> showDisconnected()
+            missed -> {
+                showMissed()
+                // debug 深連結未接：單次 [300,200,300]；service 路徑不重啟震動
+                if (!fromService) vibratorController.startMissed()
+            }
+            else -> {
+                showCall()
+                if (!fromService) {
+                    // debug 深連結來電：轉交 BlePeripheralService 統一管理
+                    // （震動＋120s watchdog；停止用 --ez debug_end true 深連結，ColorOS 擋 am broadcast）
+                    startService(
+                        Intent(this, BlePeripheralService::class.java)
+                            .setAction(Protocol.ACTION_DEBUG_START)
+                            .putExtra(EXTRA_NAME, callerName)
+                            .putExtra(EXTRA_KIND, kind)
+                    )
+                }
+            }
+        }
+    }
+
+    private fun showCall() {
+        uiState = Protocol.STATE_CALL
+        handler.removeCallbacks(finishRunnable)
+        // 特效層恢復可見（自 DISCONNECTED 轉回）
+        ringOuterView.visibility = View.VISIBLE
+        ringInnerView.visibility = View.VISIBLE
+        glowView.visibility = View.VISIBLE
+        starfieldBgView.visibility = View.VISIBLE
+        titleView.setText(if (kind == "video") R.string.title_incoming_video else R.string.title_incoming)
+        titleView.setTextColor(getColor(R.color.text_primary))
+        tintAvatar(getColor(R.color.line_green))
+        nameView.text = callerName
+        nameView.setTextColor(getColor(R.color.text_primary))
+        subtitleView.setText(R.string.subtitle_vibrating)
+        subtitleView.setTextColor(getColor(R.color.line_green))
+        startRingPulse()
+        playEntrance()
+    }
+
+    private fun showMissed() {
+        uiState = Protocol.STATE_MISSED
+        handler.removeCallbacks(finishRunnable)
+        // 特效層恢復可見（靜態低 alpha；自 DISCONNECTED 轉回）
+        ringOuterView.visibility = View.VISIBLE
+        ringInnerView.visibility = View.VISIBLE
+        glowView.visibility = View.VISIBLE
+        starfieldBgView.visibility = View.VISIBLE
+        titleView.setText(R.string.title_missed)
+        titleView.setTextColor(getColor(R.color.alert))
+        tintAvatar(getColor(R.color.alert))
+        nameView.text = callerName
+        nameView.setTextColor(getColor(R.color.text_primary))
+        subtitleView.setText(R.string.subtitle_missed)
+        subtitleView.setTextColor(getColor(R.color.text_secondary))
+        // 8 秒後自動關閉（docs/decisions.md D2）
+        handler.postDelayed(finishRunnable, Protocol.MISSED_AUTO_FINISH_MS)
+        stopRingPulse(staticAlpha = true)
+        playEntrance()
+    }
+
+    private fun showDisconnected() {
+        uiState = Protocol.STATE_DISCONNECTED
+        handler.removeCallbacks(finishRunnable)
+        titleView.setText(R.string.title_disconnected)
+        titleView.setTextColor(getColor(R.color.text_secondary))
+        renderAvatar()   // v3.2：斷線態顯示 kawaii 斷線圖示（不 tint，保留原色）
+        nameView.text = ""
+        subtitleView.setText(R.string.subtitle_disconnected)
+        subtitleView.setTextColor(getColor(R.color.text_secondary))
+        handler.postDelayed(finishRunnable, Protocol.MISSED_AUTO_FINISH_MS)
+        stopRingPulse(staticAlpha = true)
+        // v3.5：斷線態完全關閉來電特效（無動畫、無靜態殘留），只顯示圖示＋標題＋副標
+        ringOuterView.visibility = View.GONE
+        ringInnerView.visibility = View.GONE
+        glowView.visibility = View.GONE
+        starfieldBgView.visibility = View.GONE
+        playEntrance()
+    }
+
+    // ---------- v3 視覺（ui-spec v3：雙層光圈＋發光＋背景 radial＋文字微光） ----------
+
+    /** 頭像底／雙層光圈／發光依狀態 tint，並渲染頭像（T8 快取頭像優先、否則首字）。 */
+    private fun tintAvatar(color: Int) {
+        avatarTint = color
+        ringOuterView.background = getDrawable(R.drawable.bg_ring)?.apply { setTint(color) }
+        ringInnerView.background = getDrawable(R.drawable.bg_ring_inner)?.apply { setTint(color) }
+        glowView.background = getDrawable(R.drawable.bg_glow)?.apply { setTint(color) }
+        renderAvatar()
+    }
+
+    /** 渲染頭像（ui-spec v3 快取優先）：來電態查記憶體、未接/斷線態依名字查磁碟快取；無則首字。 */
+    private fun renderAvatar() {
+        if (uiState == Protocol.STATE_DISCONNECTED) {
+            // 斷線態：二次元斷線圖示，不顯示頭像（ui-spec v3.2，captain 提供 drawable）
+            avatarView.text = ""
+            avatarView.background = getDrawable(R.drawable.ic_disconnect_kawaii)
+            avatarView.alpha = 1f
+            avatarView.scaleX = 1f
+            avatarView.scaleY = 1f
+            return
+        }
+        val bmp = when {
+            uiState == Protocol.STATE_CALL -> AvatarStore.bitmap
+            else -> AvatarStore.cachedBitmap(callerName)
+        }
+        if (bmp != null) {
+            avatarView.text = ""
+            avatarView.background = AvatarStore.circularDrawable(resources, bmp)
+            // 首字→真照片轉場：scale 0.9→1.0＋alpha 0.6→1.0（API 30 無 RenderEffect，cross-fade 代替模糊）
+            avatarView.scaleX = 0.9f
+            avatarView.scaleY = 0.9f
+            avatarView.alpha = 0.6f
+            avatarView.animate().scaleX(1f).scaleY(1f).setDuration(300L).start()
+            avatarView.animate().alpha(1f).setDuration(300L).start()
+        } else {
+            avatarView.text = AvatarStore.firstCharOf(callerName)
+            avatarView.background = getDrawable(R.drawable.bg_avatar)?.apply { setTint(avatarTint) }
+            // 重置：避免 cross-fade 動畫中途切態殘留半透明 alpha
+            avatarView.alpha = 1f
+            avatarView.scaleX = 1f
+            avatarView.scaleY = 1f
+        }
+    }
+
+    /** 特效全開（僅來電態）：雙層光圈反向相位＋發光＋背景 radial＋文字微光（ObjectAnimator，省電）。 */
+    private fun startRingPulse() {
+        cancelRingPulse()
+        ringOuterView.alpha = 0.15f
+        ringInnerView.alpha = 0.55f
+        glowView.alpha = 0.2f
+        fun pulse(view: View, from: Float, to: Float, duration: Long = 1200L): ObjectAnimator {
+            return ObjectAnimator.ofFloat(view, "alpha", from, to).apply {
+                this.duration = duration
+                repeatMode = ObjectAnimator.REVERSE
+                repeatCount = ObjectAnimator.INFINITE
+                start()
+            }
+        }
+        activeAnimators += pulse(ringOuterView, 0.15f, 0.55f)   // 外層光暈
+        activeAnimators += pulse(ringInnerView, 0.55f, 0.15f)   // 內層實心環（反向相位）
+        activeAnimators += pulse(glowView, 0.2f, 0.6f)          // 頭像外發光
+        starfieldBgView.startStars()                            // 星空主背景（僅來電態）
+        rippleView.startRipples()                               // 擴散漣漪（僅來電態）
+        handler.removeCallbacks(textPulseRunnable)
+        handler.postDelayed(textPulseRunnable, 350L)            // 文字微光（等進場淡入結束）
+    }
+
+    private fun stopRingPulse(staticAlpha: Boolean) {
+        cancelRingPulse()
+        if (staticAlpha) {
+            // 未接/斷線態：全部靜止為低 alpha 常數
+            ringOuterView.alpha = 0.25f
+            ringInnerView.alpha = 0.25f
+            glowView.alpha = 0.2f
+            titleView.alpha = 1f
+            nameView.alpha = 1f
+        }
+        starfieldBgView.stopStars()   // 靜止為極淡靜態星空（alpha 0.15）
+        rippleView.stopRipples()      // 漣漪停止（靜態背景）
+    }
+
+    private fun cancelRingPulse() {
+        handler.removeCallbacks(textPulseRunnable)
+        activeAnimators.forEach { it.cancel() }
+        activeAnimators.clear()
+    }
+
+    /** 進場：頭像＋名字 scale 0.85→1.0（240ms）；標題/副標淡入（300ms）。 */
+    private fun playEntrance() {
+        avatarView.scaleX = 0.85f
+        avatarView.scaleY = 0.85f
+        nameView.scaleX = 0.85f
+        nameView.scaleY = 0.85f
+        avatarView.animate().scaleX(1f).scaleY(1f).setDuration(240L).start()
+        nameView.animate().scaleX(1f).scaleY(1f).setDuration(240L).start()
+        titleView.alpha = 0f
+        subtitleView.alpha = 0f
+        titleView.animate().alpha(1f).setDuration(300L).start()
+        subtitleView.animate().alpha(1f).setDuration(300L).start()
+    }
+
+    // ---------- v3.11 下滑拖動視窗 ----------
+
+    /** 拖動視窗：MOVE 跟手（translationY＋alpha 漸降）；UP ≥80px 飛出、否則彈回。 */
+    private fun setupSwipeDismiss() {
+        val root = findViewById<View>(android.R.id.content)
+        root.setOnTouchListener { v, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    dragStartRawX = ev.rawX
+                    dragStartRawY = ev.rawY
+                    dragging = true
+                    // v3.13：GPU 紋理快取＋暫停星空/漣漪（避免 MOVE 每幀整樹重繪）
+                    v.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                    starfieldBgView.stopStars()
+                    rippleView.stopRipples()
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (!dragging) return@setOnTouchListener true
+                    if (ev.pointerCount > 1) {
+                        // 多指 → 取消拖動並彈回
+                        dragging = false
+                        springBack(v)
+                        return@setOnTouchListener true
+                    }
+                    val dx = (ev.rawX - dragStartRawX).coerceAtLeast(0f)
+                    v.translationX = damp(dx)
+                    v.alpha = 1f - (dx.coerceAtMost(160f) / 160f) * 0.75f
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!dragging) return@setOnTouchListener true
+                    dragging = false
+                    val dx = (ev.rawX - dragStartRawX).coerceAtLeast(0f)
+                    val dy = ev.rawY - dragStartRawY
+                    val verticalInterference = kotlin.math.abs(dy) > dx * 0.5f
+                    if (!verticalInterference && dx >= 80f) {
+                        // v3.12：直接 finish()，不加自訂飛出 → 系統右滑關閉過場自然接續
+                        handleSwipeDismiss()
+                    } else {
+                        springBack(v)
+                    }
+                    true
+                }
+                else -> true
+            }
+        }
+    }
+
+    /** dy>160px 後 0.6 阻尼。 */
+    private fun damp(dy: Float): Float =
+        if (dy > 160f) 160f + (dy - 160f) * 0.6f else dy
+
+    private fun springBack(v: View) {
+        v.animate()
+            .translationX(0f)
+            .alpha(1f)
+            .setDuration(200L)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .withEndAction { restoreEffectsAfterDrag(v) }
+            .start()
+    }
+
+    /** 彈回結束：移除 GPU 圖層＋來電態恢復星空/漣漪。 */
+    private fun restoreEffectsAfterDrag(v: View) {
+        v.setLayerType(View.LAYER_TYPE_NONE, null)
+        if (uiState == Protocol.STATE_CALL) {
+            starfieldBgView.startStars()
+            rippleView.startRipples()
+        }
+    }
+
+    private fun handleSwipeDismiss() {
+        Protocol.logEvent("{\"t\":\"swipe_dismiss\",\"src\":\"activity\"}")
+        handler.removeCallbacks(finishRunnable)   // 未接/斷線：取消 8s 自動關
+        if (uiState == Protocol.STATE_CALL) {
+            // 等同 watch 端 endCall(false)：本地停震＋關畫面；不送 BLE 指令，手機端來電不受影響
+            startService(
+                Intent(this, BlePeripheralService::class.java)
+                    .setAction(Protocol.ACTION_DEBUG_END)
+                    .putExtra("missed", false)
+            )
+        }
+        finish()
+    }
+
+    private fun hideSystemBars() {
+        window.insetsController?.apply {
+            hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+            systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+}

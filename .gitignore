@@ -1,0 +1,14 @@
+# Gradle
+.gradle/
+build/
+app/build/
+local.properties
+*.iml
+.idea/
+captures/
+.kotlin/
+
+# 系統/雜項
+.DS_Store
+Thumbs.db
+*.log

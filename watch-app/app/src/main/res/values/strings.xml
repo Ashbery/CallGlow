@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LINE 來電提醒</string>
+
+    <string name="title_incoming">LINE 來電</string>
+    <string name="title_incoming_video">LINE 視訊來電</string>
+    <string name="title_missed">LINE 未接來電</string>
+    <string name="title_disconnected">藍牙已斷線</string>
+
+    <string name="subtitle_vibrating">● 震動提醒中</string>
+    <string name="subtitle_missed">對方可能已掛斷</string>
+    <string name="subtitle_disconnected">等待手機重新連線</string>
+
+    <string name="unknown_caller">未知聯絡人</string>
+
+    <string name="notification_channel_name">來電提醒服務</string>
+    <string name="notification_waiting">等待手機連線…</string>
+    <string name="notification_connected">手機已連線</string>
+    <string name="notification_calling">來電提醒中：%1$s</string>
+    <string name="notification_bt_off">藍牙未開啟</string>
+    <string name="notification_bt_unavailable">本機不支援藍牙</string>
+    <string name="notification_no_bt_permission">缺少藍牙權限</string>
+
+    <!-- SettingsActivity（ui-spec V2-1） -->
+    <string name="settings_bt_connected">藍牙：已連線</string>
+    <string name="settings_bt_idle">藍牙：待機中</string>
+    <string name="settings_bt_name">手錶 %1$s</string>
+    <string name="settings_strength_label">震動強度</string>
+    <string name="settings_strength_weak">弱 100</string>
+    <string name="settings_strength_medium">中 150</string>
+    <string name="settings_strength_strong">強 200</string>
+    <string name="settings_pattern_label">震動節奏</string>
+    <string name="settings_pattern_rapid">急促</string>
+    <string name="settings_pattern_medium">適中</string>
+    <string name="settings_pattern_long">長震</string>
+    <string name="btn_test_call">測試來電</string>
+    <string name="btn_test_missed">測試未接</string>
+    <string name="btn_test_stop">停止</string>
+    <string name="settings_boot_note">開機自動啟動提醒服務。若重開機後未自動啟動，請在手錶設定允許自啟動／後台運行。</string>
+
+    <!-- v3.17 震動模式 -->
+    <string name="settings_use_system_effect">使用系統震動效果</string>
+    <string name="settings_mode_click">短按（CLICK）</string>
+    <string name="settings_mode_double_click">雙擊（DOUBLE_CLICK）</string>
+    <string name="settings_mode_tick">滴答（TICK）</string>
+    <string name="settings_mode_heavy_click">重擊（HEAVY_CLICK）</string>
+</resources>

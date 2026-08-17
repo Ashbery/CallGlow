@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- v3.15：圓形黑卡（右拖時滑動的是一張圓形卡片、角落透明，配合 translucent 主題露桌面） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/watch_black" />
+</shape>

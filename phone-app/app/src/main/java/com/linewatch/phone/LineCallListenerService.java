@@ -53,12 +53,12 @@ public class LineCallListenerService extends NotificationListenerService {
         long delay = removedAt > 0 ? now - removedAt : -1;
         CallStateMachine.Action a = machine.onVerdictExpired(now);
         if (a.type == CallStateMachine.Action.MISSED) {
-            Log.d(TAG, "verdict window expired -> default missed reason=" + lastRemovalReason
+            Logs.d(TAG, "verdict window expired -> default missed reason=" + lastRemovalReason
                     + " delay=" + delay + "ms -> " + Command.missed(a.name, a.kind));
             BleCentralService.abortAvatar();
             BleCentralService.send(Command.missed(a.name, a.kind));
         } else {
-            Log.d(TAG, "verdict window expired -> no action (answered/consumed/disarmed) reason="
+            Logs.d(TAG, "verdict window expired -> no action (answered/consumed/disarmed) reason="
                     + lastRemovalReason + " delay=" + delay + "ms");
         }
     };
@@ -90,7 +90,7 @@ public class LineCallListenerService extends NotificationListenerService {
     public void onListenerConnected() {
         instance = this;
         StatusBus.listener(true);
-        Log.i(TAG, "notification listener connected");
+        Logs.i(TAG, "notification listener connected");
         if (Prefs.isEnabled(this)) {
             startBleService();
         }
@@ -144,7 +144,7 @@ public class LineCallListenerService extends NotificationListenerService {
             } catch (Exception ignore) { }
             android.graphics.Bitmap pic = null;
             try { pic = (android.graphics.Bitmap) e.getParcelable(Notification.EXTRA_PICTURE); } catch (Exception ignore) { }
-            Log.d(TAG, "LINE notify: key=" + sbn.getKey() + " channel=" + channelId
+            Logs.d(TAG, "LINE notify: key=" + sbn.getKey() + " channel=" + channelId
                     + " category=" + category + " title=" + title + " sub=" + sub + " text=" + text
                     + " largeIcon=" + (largeIcon == null ? "null" : largeIcon.getWidth() + "x" + largeIcon.getHeight())
                     + " pic=" + (pic == null ? "null" : pic.getWidth() + "x" + pic.getHeight()));
@@ -153,13 +153,13 @@ public class LineCallListenerService extends NotificationListenerService {
             if (CallParser.isOngoing(channelId, title, sub, text)) {
                 CallStateMachine.Action a = machine.onOngoing();
                 if (a.type == CallStateMachine.Action.END) {
-                    Log.i(TAG, "ongoing detected -> " + Command.end(false));
+                    Logs.i(TAG, "ongoing detected -> " + Command.end(false));
                     sendEnd(false);
                 } else {
                     // IDLE（removed 後 Ongoing 才到＝接聽定案）：記錄 Ongoing 延遲供 D 場景統計
                     long removedAt = machine.getLastRemovedAtMs();
                     String delay = removedAt > 0 ? (now - removedAt) + "ms since removed" : "no recent removed";
-                    Log.d(TAG, "ongoing while idle (answered, verdict settled): " + delay);
+                    Logs.d(TAG, "ongoing while idle (answered, verdict settled): " + delay);
                 }
                 return;
             }
@@ -171,18 +171,18 @@ public class LineCallListenerService extends NotificationListenerService {
             if (missed) {
                 CallStateMachine.Action a = machine.onCallPosted(sbn.getKey(), name, kind, true, now);
                 if (a.type == CallStateMachine.Action.END) {
-                    Log.i(TAG, "call end (missed repost) -> " + Command.end(true));
+                    Logs.i(TAG, "call end (missed repost) -> " + Command.end(true));
                     sendEnd(true);
                 } else if (a.type == CallStateMachine.Action.MISSED) {
                     // 未接判定窗命中 → 補送顯示指令（protocol.md v1.1）
                     if (Constants.UNKNOWN_NAME.equals(a.name) && machine.getLastName() != null) {
                         name = machine.getLastName();
                     }
-                    Log.i(TAG, "missed verdict window hit -> " + Command.missed(name, a.kind));
+                    Logs.i(TAG, "missed verdict window hit -> " + Command.missed(name, a.kind));
                     BleCentralService.abortAvatar();
                     BleCentralService.send(Command.missed(name, a.kind));
                 } else {
-                    Log.d(TAG, "missed while idle outside window, ignored: title=" + title + " text=" + text);
+                    Logs.d(TAG, "missed while idle outside window, ignored: title=" + title + " text=" + text);
                 }
                 return;
             }
@@ -191,7 +191,7 @@ public class LineCallListenerService extends NotificationListenerService {
 
             CallStateMachine.Action a = machine.onCallPosted(sbn.getKey(), name, kind, false, now);
             if (a.type == CallStateMachine.Action.START) {
-                Log.i(TAG, "call start: " + Command.start(name, kind));
+                Logs.i(TAG, "call start: " + Command.start(name, kind));
                 BleCentralService.abortAvatar(); // 新來電取代舊頭像 session
                 startBleService();
                 BleCentralService.send(Command.start(name, kind));
@@ -206,7 +206,7 @@ public class LineCallListenerService extends NotificationListenerService {
                         if (jpeg != null) {
                             BleCentralService.sendAvatar(jpeg);
                         } else {
-                            Log.d(TAG, "avatar compress gave up (too large) -> keep initial avatar");
+                            Logs.d(TAG, "avatar compress gave up (too large) -> keep initial avatar");
                         }
                     });
                 }
@@ -227,13 +227,13 @@ public class LineCallListenerService extends NotificationListenerService {
         try {
             if (!Constants.LINE_PACKAGE.equals(sbn.getPackageName())) return;
             lastRemovalReason = reason;
-            Log.d(TAG, "LINE removed: key=" + sbn.getKey() + " reason=" + reason);
+            Logs.d(TAG, "LINE removed: key=" + sbn.getKey() + " reason=" + reason);
             long now = SystemClock.elapsedRealtime();
             // 選配細化：使用者動作類 reason（點擊/使用者清除）→ 不武裝未接判定窗（多半是接聽或拒接）
             boolean armVerdict = !isUserActionReason(reason);
             CallStateMachine.Action a = machine.onCallRemoved(sbn.getKey(), now, armVerdict);
             if (a.type == CallStateMachine.Action.END) {
-                Log.i(TAG, "notification removed -> " + Command.end(false) + " (armVerdict=" + armVerdict + ")");
+                Logs.i(TAG, "notification removed -> " + Command.end(false) + " (armVerdict=" + armVerdict + ")");
                 sendEnd(false);
                 if (armVerdict) {
                     main.removeCallbacks(verdictExpiry);
@@ -264,10 +264,10 @@ public class LineCallListenerService extends NotificationListenerService {
 
     private void onBleReady() {
         if (machine.isRinging()) {
-            Log.i(TAG, "ble ready while ringing -> resend " + Command.start(machine.getLastName(), machine.getLastKind()));
+            Logs.i(TAG, "ble ready while ringing -> resend " + Command.start(machine.getLastName(), machine.getLastKind()));
             BleCentralService.send(Command.start(machine.getLastName(), machine.getLastKind()));
         } else if (startWritten && !endWritten) {
-            Log.i(TAG, "ble ready, idle with unsent end -> " + Command.end(true));
+            Logs.i(TAG, "ble ready, idle with unsent end -> " + Command.end(true));
             BleCentralService.send(Command.end(true));
         }
     }

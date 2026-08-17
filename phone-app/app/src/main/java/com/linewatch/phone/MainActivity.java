@@ -60,7 +60,7 @@ public class MainActivity extends AppCompatActivity implements StatusBus.Listene
         btnTestCall.setOnClickListener(v -> {
             String cmd = Command.start("測試來電", "voice");
             BleCentralService.send(cmd);
-            Log.i(TAG, "test call sent: " + cmd);
+            Logs.i(TAG, "test call sent: " + cmd);
             main.removeCallbacks(testWatchdog);
             main.postDelayed(testWatchdog, Constants.WATCHDOG_MS);
         });
@@ -68,13 +68,13 @@ public class MainActivity extends AppCompatActivity implements StatusBus.Listene
             main.removeCallbacks(testWatchdog);
             String cmd = Command.end(true);
             BleCentralService.send(cmd);
-            Log.i(TAG, "test missed sent: " + cmd);
+            Logs.i(TAG, "test missed sent: " + cmd);
         });
         btnStopTest.setOnClickListener(v -> {
             main.removeCallbacks(testWatchdog);
             String cmd = Command.end(false);
             BleCentralService.send(cmd);
-            Log.i(TAG, "test stop sent: " + cmd);
+            Logs.i(TAG, "test stop sent: " + cmd);
         });
         btnNotifAccess.setOnClickListener(v ->
                 startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));

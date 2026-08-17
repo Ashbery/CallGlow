@@ -13,9 +13,22 @@ object Protocol {
     // tag 固定 LineWatchWatch；關鍵事件（start/end/ping/pong/連線/斷線/看門狗）輸出完整 JSON
     const val LOG_TAG = "LineWatchWatch"
 
+    /** D18 正式版：關閉常態日誌（開發/除錯時改 true）。Log.w/Log.e 不受此開關控制。 */
+    const val LOG_ENABLED = false
+
     /** 關鍵事件 log：單行完整 JSON。測試驗收全靠 logcat，勿改 tag。 */
     fun logEvent(message: String) {
-        Log.i(LOG_TAG, message)
+        if (LOG_ENABLED) Log.i(LOG_TAG, message)
+    }
+
+    /** 常態資訊日誌（受 LOG_ENABLED 控制）。 */
+    fun logI(message: String) {
+        if (LOG_ENABLED) Log.i(LOG_TAG, message)
+    }
+
+    /** 常態除錯日誌（受 LOG_ENABLED 控制）。 */
+    fun logD(message: String) {
+        if (LOG_ENABLED) Log.d(LOG_TAG, message)
     }
 
     // GATT（Nordic UART Service）

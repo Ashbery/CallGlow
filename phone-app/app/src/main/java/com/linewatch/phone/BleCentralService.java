@@ -157,7 +157,7 @@ public class BleCentralService extends Service {
         ContextCompat.registerReceiver(this, btReceiver,
                 new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED),
                 ContextCompat.RECEIVER_NOT_EXPORTED);
-        Log.i(TAG, "BleCentralService created");
+        Logs.i(TAG, "BleCentralService created");
         StatusBus.ble("已斷線", "");
     }
 
@@ -165,7 +165,7 @@ public class BleCentralService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? null : intent.getAction();
         if (Constants.ACTION_STOP.equals(action)) {
-            Log.i(TAG, "stop requested");
+            Logs.i(TAG, "stop requested");
             stopping = true;
             ready = false;
             worker.post(() -> finishAvatarSession());
@@ -181,7 +181,7 @@ public class BleCentralService extends Service {
 
     @Override
     public void onDestroy() {
-        Log.i(TAG, "BleCentralService destroyed");
+        Logs.i(TAG, "BleCentralService destroyed");
         stopping = true;
         instance = null;
         finishAvatarSession();
@@ -262,7 +262,7 @@ public class BleCentralService extends Service {
                         .build();
                 scanning = true;
                 StatusBus.ble("掃描中", "");
-                Log.i(TAG, "scan started (NUS UUID filter)");
+                Logs.i(TAG, "scan started (NUS UUID filter)");
                 scanner.startScan(Collections.singletonList(f), s, scanCallback);
             } catch (Exception e) {
                 scanning = false;
@@ -309,7 +309,7 @@ public class BleCentralService extends Service {
         if (!hasBlePermissions()) return;
         connecting = true;
         deviceName = device.getName() != null ? device.getName() : device.getAddress();
-        Log.i(TAG, "connectGatt (autoConnect=true) -> " + deviceName + " (" + device.getAddress() + ")");
+        Logs.i(TAG, "connectGatt (autoConnect=true) -> " + deviceName + " (" + device.getAddress() + ")");
         gatt = device.connectGatt(this, true, gattCallback, BluetoothDevice.TRANSPORT_LE);
         if (gatt == null) {
             connecting = false;
@@ -324,7 +324,7 @@ public class BleCentralService extends Service {
         @Override
         public void onConnectionStateChange(BluetoothGatt g, int status, int newState) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                Log.i(TAG, "connected (status=" + status + ")");
+                Logs.i(TAG, "connected (status=" + status + ")");
                 connecting = false;
                 reconnectAttempt = 0;
                 pongMisses = 0;
@@ -333,7 +333,7 @@ public class BleCentralService extends Service {
                     Log.w(TAG, "discoverServices returned false");
                 }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                Log.i(TAG, "disconnected (status=" + status + ")");
+                Logs.i(TAG, "disconnected (status=" + status + ")");
                 ready = false;
                 connecting = false;
                 StatusBus.ble("已斷線", deviceName);
@@ -380,7 +380,7 @@ public class BleCentralService extends Service {
                 if (!stopping) scheduleReconnect();
                 return;
             }
-            Log.i(TAG, "mtu = " + mtu);
+            Logs.i(TAG, "mtu = " + mtu);
             enableNotifications(g);
         }
 
@@ -388,7 +388,7 @@ public class BleCentralService extends Service {
         public void onCharacteristicWrite(BluetoothGatt g, BluetoothGattCharacteristic ch, int status) {
             writeInFlight = false; // 回呼到達 → 序列化器可送下一筆
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.i(TAG, "write ok: " + lastWritten);
+                Logs.i(TAG, "write ok: " + lastWritten);
                 if (lastWritten != null) {
                     String t = Command.typeOf(lastWritten);
                     if ("start".equals(t) || "end".equals(t)) {
@@ -424,13 +424,13 @@ public class BleCentralService extends Service {
             String t = Command.typeOf(json);
             if ("pong".equals(t)) {
                 pongMisses = 0;
-                Log.d(TAG, "pong received: " + json);
+                Logs.d(TAG, "pong received: " + json);
             } else if ("ack".equals(t)) {
-                Log.i(TAG, "ack received: " + json);
+                Logs.i(TAG, "ack received: " + json);
                 if (json.contains("av_end")) {
                     worker.post(() -> {
                         if (avatarAwaitingAck) {
-                            Log.i(TAG, "avatar transfer done (ack av_end)");
+                            Logs.i(TAG, "avatar transfer done (ack av_end)");
                             finishAvatarSession();
                         }
                     });
@@ -440,9 +440,9 @@ public class BleCentralService extends Service {
                 worker.post(() -> handleAvatarFail());
             } else if ("av_show".equals(t)) {
                 // 手錶端顯示結果（可能走 BLE 或僅其本機 log）：僅記錄，不動作
-                Log.i(TAG, "avatar show event: " + json);
+                Logs.i(TAG, "avatar show event: " + json);
             } else {
-                Log.d(TAG, "unexpected notify: " + json);
+                Logs.d(TAG, "unexpected notify: " + json);
             }
         }
     };
@@ -459,7 +459,7 @@ public class BleCentralService extends Service {
         StatusBus.ble("已連線", deviceName);
         LineCallListenerService.notifyBleReady();
         if (pending != null) {
-            Log.i(TAG, "discard stale pending command: " + pending);
+            Logs.i(TAG, "discard stale pending command: " + pending);
             pending = null;
         }
         startHeartbeat();
@@ -472,7 +472,7 @@ public class BleCentralService extends Service {
     private synchronized boolean write(String json) {
         if (!ready || gatt == null || charCmd == null) {
             pending = json;
-            Log.d(TAG, "not ready, queued: " + json);
+            Logs.d(TAG, "not ready, queued: " + json);
             return false;
         }
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
@@ -501,7 +501,7 @@ public class BleCentralService extends Service {
             finishAvatarSession();
             return;
         }
-        Log.i(TAG, "avatar session start: ts=" + avatarTs + " total=" + avatarTotal + " bytes=" + jpeg.length);
+        Logs.i(TAG, "avatar session start: ts=" + avatarTs + " total=" + avatarTotal + " bytes=" + jpeg.length);
         // av_start 進串列化佇列（排在進行中的 start/ping 之後）；false 由 writePump 重試，不再是立即失敗
         avatarQueue.add(new WriteItem(AvatarTransfer.buildStart(avatarTotal, jpeg.length, avatarTs), true));
         worker.post(writePump);
@@ -511,7 +511,7 @@ public class BleCentralService extends Service {
 
     private void finishAvatarSession() {
         if (avatarJpeg != null) {
-            Log.i(TAG, "avatar session finished (idx=" + avatarIdx + "/" + avatarTotal + ")");
+            Logs.i(TAG, "avatar session finished (idx=" + avatarIdx + "/" + avatarTotal + ")");
         }
         avatarJpeg = null;
         avatarSha = null;
@@ -698,7 +698,7 @@ public class BleCentralService extends Service {
         int idx = Math.min(reconnectAttempt, Constants.RECONNECT_BACKOFF_MS.length - 1);
         long delay = Constants.RECONNECT_BACKOFF_MS[idx];
         reconnectAttempt = Math.min(reconnectAttempt + 1, Constants.RECONNECT_BACKOFF_MS.length - 1);
-        Log.i(TAG, "reconnect scheduled in " + delay + " ms (attempt " + reconnectAttempt + ")");
+        Logs.i(TAG, "reconnect scheduled in " + delay + " ms (attempt " + reconnectAttempt + ")");
         worker.postDelayed(() -> {
             reconnectScheduled = false;
             if (stopping) return;
@@ -730,11 +730,11 @@ public class BleCentralService extends Service {
             if (!BluetoothAdapter.ACTION_STATE_CHANGED.equals(a)) return;
             int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, -1);
             if (state == BluetoothAdapter.STATE_ON) {
-                Log.i(TAG, "bluetooth turned on -> start scan");
+                Logs.i(TAG, "bluetooth turned on -> start scan");
                 stopping = false;
                 startScanSafe();
             } else if (state == BluetoothAdapter.STATE_TURNING_OFF || state == BluetoothAdapter.STATE_OFF) {
-                Log.i(TAG, "bluetooth turning off");
+                Logs.i(TAG, "bluetooth turning off");
                 ready = false;
                 stopScan();
                 closeGatt();

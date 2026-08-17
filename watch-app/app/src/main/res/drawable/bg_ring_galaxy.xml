@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- D17 銀河光環：sweep 漸層空心環（紫→藍→洋紅），搭配 View rotation 慢速自轉 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="ring"
+    android:innerRadius="0dp"
+    android:thickness="3dp"
+    android:useLevel="false">
+    <gradient
+        android:type="sweep"
+        android:startColor="@color/galaxy_purple"
+        android:centerColor="@color/galaxy_blue"
+        android:endColor="@color/galaxy_magenta" />
+</shape>

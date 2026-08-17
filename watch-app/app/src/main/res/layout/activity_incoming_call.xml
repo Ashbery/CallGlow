@@ -13,6 +13,17 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!-- D17 銀河：極光光暈（星雲流動）＋螢幕邊緣呼吸光環 -->
+    <com.linewatch.watch.AuroraView
+        android:id="@+id/aurora"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <com.linewatch.watch.EdgeHaloView
+        android:id="@+id/edge_halo"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

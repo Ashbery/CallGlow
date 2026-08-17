@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- D17 銀河頭像發光：紫→藍 radial 光暈 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <gradient
+        android:type="radial"
+        android:gradientRadius="36dp"
+        android:startColor="#667C4DFF"
+        android:centerColor="#2229B6F6"
+        android:endColor="#007C4DFF" />
+</shape>

@@ -27,18 +27,17 @@ class RippleView @JvmOverloads constructor(
         setBackgroundColor(android.graphics.Color.TRANSPARENT)
     }
 
-    private class Ripple(val delay: Float)
+    private class Ripple(val delay: Float, val color: Int)
 
     private val density = resources.displayMetrics.density
     private val ripples = listOf(
-        Ripple(delay = 0f),
-        Ripple(delay = 1f / 3f),
-        Ripple(delay = 2f / 3f),
+        Ripple(delay = 0f, color = 0xFF7C4DFF.toInt()),      // D17 銀河：深空紫
+        Ripple(delay = 1f / 3f, color = 0xFF18FFFF.toInt()), // 星雲青
+        Ripple(delay = 2f / 3f, color = 0xFFE040FB.toInt()), // 星雲洋紅
     )
     private val ripplePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = 2f * density
-        color = 0xFF06C755.toInt()
     }
     private val clipPath = Path()
 
@@ -100,6 +99,7 @@ class RippleView @JvmOverloads constructor(
             val p = (progress + r.delay) % 1f
             val radius = baseRadius * (0.6f + 0.45f * p)   // scale 0.6→1.05
             val alpha = 0.35f * (1f - p)
+            ripplePaint.color = r.color
             ripplePaint.alpha = (alpha * 255f).toInt().coerceIn(0, 255)
             canvas.drawCircle(cx, cy, radius, ripplePaint)
         }

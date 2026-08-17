@@ -94,3 +94,13 @@ SettingsProvider 而定（有時要求 WRITE_SECURE_SETTINGS 而拒）→ 以 ad
 Fonts 物件以 resources.getFont 載入，API 26+ 原生，無 androidx 依賴）。
 名字最大字號 40sp → 34sp → **28sp**（D16 二修：長英文名不出界；Activity 與 overlay 同步，
 autosize 12–28sp 自動縮放至屏寬 70% 內，min 12sp 可容納約 20 字元英文名）。
+
+## D17 銀河主題來電特效 — 2026-08-17（使用者裁決）
+使用者選 A＋C＋F 且要求光環「帥一點、太空銀河感」。定案：
+- A 極光：AuroraView 改寫為三團銀河柔光（深空紫/星雲青/星雲洋紅）30s 緩轉。
+- C 光環隨震動節拍明滅（亮相/熄滅與所選震動節奏同步）＋sweep 銀河漸層＋30s 正/反自轉；
+  漣漪三圈改染紫/青/洋紅。
+- F 邊緣呼吸光環：新 EdgeHaloView（圓屏外圈 3dp 細環、sweep 漸層、3s 呼吸＋45s 自轉）。
+- 配色 palette 新增 colors.xml（galaxy_* 五色）；LINE 綠僅留副標點綴。
+- 長名字（12sp 仍超 70% 寬）→ 固定 16sp＋marquee 橫向滾動（Activity/overlay）。
+- 僅 CALLING 套用；MISSED 橙、DISCONNECTED 灰不變。

@@ -52,6 +52,8 @@ class IncomingCallActivity : Activity() {
     private lateinit var glowView: View
     private lateinit var rippleView: RippleView
     private lateinit var starfieldBgView: StarfieldView
+    private lateinit var auroraView: AuroraView      // D17 銀河極光
+    private lateinit var edgeHaloView: EdgeHaloView  // D17 邊緣呼吸光環
     private lateinit var avatarView: TextView
     private lateinit var titleView: TextView
     private lateinit var nameView: TextView
@@ -85,6 +87,28 @@ class IncomingCallActivity : Activity() {
     private var dragStartRawX = 0f
     private var dragStartRawY = 0f
     private var dragging = false
+
+    // D17 節拍明滅（與震動同步）：亮相 → 停頓 → 循環
+    private var beatOnMs = 600L
+    private var beatOffMs = 400L
+    private val beatBright: Runnable = object : Runnable {
+        override fun run() {
+            if (uiState != Protocol.STATE_CALL) return
+            ringOuterView.animate().alpha(0.55f).setDuration(140L).start()
+            ringInnerView.animate().alpha(0.15f).setDuration(140L).start()
+            glowView.animate().alpha(0.6f).setDuration(140L).start()
+            handler.postDelayed(beatDim, beatOnMs)
+        }
+    }
+    private val beatDim: Runnable = object : Runnable {
+        override fun run() {
+            if (uiState != Protocol.STATE_CALL) return
+            ringOuterView.animate().alpha(0.15f).setDuration(200L).start()
+            ringInnerView.animate().alpha(0.55f).setDuration(200L).start()
+            glowView.animate().alpha(0.2f).setDuration(200L).start()
+            handler.postDelayed(beatBright, beatOffMs)
+        }
+    }
 
     private val finishRunnable = Runnable { finish() }
 
@@ -176,6 +200,8 @@ class IncomingCallActivity : Activity() {
         glowView = findViewById(R.id.glow)
         rippleView = findViewById(R.id.ripple)
         starfieldBgView = findViewById(R.id.starfield_bg)
+        auroraView = findViewById(R.id.aurora)
+        edgeHaloView = findViewById(R.id.edge_halo)
         avatarView = findViewById(R.id.avatar)
         titleView = findViewById(R.id.title)
         nameView = findViewById(R.id.name)
@@ -191,6 +217,27 @@ class IncomingCallActivity : Activity() {
         val pad = (resources.displayMetrics.widthPixels * 0.15f).toInt()
         nameView.setPadding(pad, 0, pad, 0)
         nameView.setAutoSizeTextTypeUniformWithConfiguration(12, 28, 1, TypedValue.COMPLEX_UNIT_SP)
+    }
+
+    /** D17：名字太長（12sp 仍超出屏寬 70%）→ 固定 16sp＋marquee 橫向滾動；否則維持 autosize。 */
+    private fun applyNameDisplay(name: String) {
+        val avail = resources.displayMetrics.widthPixels * 0.70f
+        val test = android.text.TextPaint().apply {
+            textSize = 12f * resources.displayMetrics.scaledDensity
+            typeface = Fonts.yomogi(this@IncomingCallActivity)
+        }
+        if (test.measureText(name) > avail) {
+            // 固定 16sp＋marquee（autosize 縮放會與 ellipsize 衝突 → 先關閉 autosize）
+            nameView.setAutoSizeTextTypeWithDefaults(android.widget.TextView.AUTO_SIZE_TEXT_TYPE_NONE)
+            nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            nameView.ellipsize = android.text.TextUtils.TruncateAt.MARQUEE
+            nameView.marqueeRepeatLimit = -1
+            nameView.isSelected = true
+        } else {
+            nameView.setAutoSizeTextTypeUniformWithConfiguration(12, 28, 1, TypedValue.COMPLEX_UNIT_SP)
+            nameView.ellipsize = null
+            nameView.isSelected = false
+        }
     }
 
     private fun handleIntent(intent: Intent?) {
@@ -247,11 +294,14 @@ class IncomingCallActivity : Activity() {
         ringInnerView.visibility = View.VISIBLE
         glowView.visibility = View.VISIBLE
         starfieldBgView.visibility = View.VISIBLE
+        auroraView.visibility = View.VISIBLE
+        edgeHaloView.visibility = View.VISIBLE
         titleView.setText(if (kind == "video") R.string.title_incoming_video else R.string.title_incoming)
         titleView.setTextColor(getColor(R.color.text_primary))
-        tintAvatar(getColor(R.color.line_green))
+        tintAvatar(getColor(R.color.line_green))   // D17：CALLING 走銀河 drawable（見 tintAvatar）
         nameView.text = callerName
         nameView.setTextColor(getColor(R.color.text_primary))
+        applyNameDisplay(callerName)
         subtitleView.setText(R.string.subtitle_vibrating)
         subtitleView.setTextColor(getColor(R.color.line_green))
         startRingPulse()
@@ -271,11 +321,13 @@ class IncomingCallActivity : Activity() {
         tintAvatar(getColor(R.color.alert))
         nameView.text = callerName
         nameView.setTextColor(getColor(R.color.text_primary))
+        applyNameDisplay(callerName)
         subtitleView.setText(R.string.subtitle_missed)
         subtitleView.setTextColor(getColor(R.color.text_secondary))
         // D15：螢幕持續亮 → 8s 自動關（右滑可提前關）；息屏 → 服務發 HIDE_UI 結束、抬腕不再顯示
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         handler.postDelayed(finishRunnable, Protocol.MISSED_AUTO_FINISH_MS)
+        stopGalaxyEffects()
         stopRingPulse(staticAlpha = true)
         playEntrance()
     }
@@ -292,6 +344,7 @@ class IncomingCallActivity : Activity() {
         // D15：螢幕持續亮 → 8s 自動關（右滑可提前關）；息屏 → HIDE_UI
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         handler.postDelayed(finishRunnable, Protocol.MISSED_AUTO_FINISH_MS)
+        stopGalaxyEffects()
         stopRingPulse(staticAlpha = true)
         // v3.5：斷線態完全關閉來電特效（無動畫、無靜態殘留），只顯示圖示＋標題＋副標
         ringOuterView.visibility = View.GONE
@@ -303,12 +356,19 @@ class IncomingCallActivity : Activity() {
 
     // ---------- v3 視覺（ui-spec v3：雙層光圈＋發光＋背景 radial＋文字微光） ----------
 
-    /** 頭像底／雙層光圈／發光依狀態 tint，並渲染頭像（T8 快取頭像優先、否則首字）。 */
+    /** 頭像底／雙層光圈／發光依狀態 tint，並渲染頭像（T8 快取頭像優先、否則首字）。
+     *  D17：CALLING 態改用銀河 sweep/radial drawable（不 tint），missed/disconnected 維持純色 tint。 */
     private fun tintAvatar(color: Int) {
         avatarTint = color
-        ringOuterView.background = getDrawable(R.drawable.bg_ring)?.apply { setTint(color) }
-        ringInnerView.background = getDrawable(R.drawable.bg_ring_inner)?.apply { setTint(color) }
-        glowView.background = getDrawable(R.drawable.bg_glow)?.apply { setTint(color) }
+        if (uiState == Protocol.STATE_CALL) {
+            ringOuterView.background = getDrawable(R.drawable.bg_ring_galaxy)
+            ringInnerView.background = getDrawable(R.drawable.bg_ring_galaxy)
+            glowView.background = getDrawable(R.drawable.bg_glow_galaxy)
+        } else {
+            ringOuterView.background = getDrawable(R.drawable.bg_ring)?.apply { setTint(color) }
+            ringInnerView.background = getDrawable(R.drawable.bg_ring_inner)?.apply { setTint(color) }
+            glowView.background = getDrawable(R.drawable.bg_glow)?.apply { setTint(color) }
+        }
         renderAvatar()
     }
 
@@ -338,7 +398,11 @@ class IncomingCallActivity : Activity() {
             avatarView.animate().alpha(1f).setDuration(300L).start()
         } else {
             avatarView.text = AvatarStore.firstCharOf(callerName)
-            avatarView.background = getDrawable(R.drawable.bg_avatar)?.apply { setTint(avatarTint) }
+            avatarView.background = if (uiState == Protocol.STATE_CALL) {
+                getDrawable(R.drawable.bg_avatar_galaxy)   // D17：銀河首字底
+            } else {
+                getDrawable(R.drawable.bg_avatar)?.apply { setTint(avatarTint) }
+            }
             // 重置：避免 cross-fade 動畫中途切態殘留半透明 alpha
             avatarView.alpha = 1f
             avatarView.scaleX = 1f
@@ -346,25 +410,43 @@ class IncomingCallActivity : Activity() {
         }
     }
 
-    /** 特效全開（僅來電態）：雙層光圈反向相位＋發光＋背景 radial＋文字微光（ObjectAnimator，省電）。 */
+    /** 特效全開（僅來電態，D17 銀河）：光圈隨震動節拍明滅＋30s 自轉、星空、銀河漣漪、極光、邊緣光環。 */
     private fun startRingPulse() {
         cancelRingPulse()
+        // 節拍：自訂節奏讀 pattern [on,off]；系統效果模式 700ms 循環近似
+        val useSystem = Prefs.getUseSystemEffect(this)
+        val vibMode = Prefs.getVibMode(this)
+        if (useSystem && vibMode.isNotEmpty()) {
+            beatOnMs = 350L
+            beatOffMs = 350L
+        } else {
+            val p = Prefs.callPatternFor(Prefs.getPatternKey(this))
+            beatOnMs = p.getOrElse(0) { 600L }
+            beatOffMs = p.getOrElse(1) { 400L }
+        }
         ringOuterView.alpha = 0.15f
         ringInnerView.alpha = 0.55f
         glowView.alpha = 0.2f
-        fun pulse(view: View, from: Float, to: Float, duration: Long = 1200L): ObjectAnimator {
-            return ObjectAnimator.ofFloat(view, "alpha", from, to).apply {
-                this.duration = duration
-                repeatMode = ObjectAnimator.REVERSE
-                repeatCount = ObjectAnimator.INFINITE
-                start()
-            }
+        handler.removeCallbacks(beatBright)
+        handler.removeCallbacks(beatDim)
+        handler.post(beatBright)                                // 亮相 → 停頓相循環（與震動同步）
+        // 銀河自轉：外環正轉、內環反轉（sweep 漸層旋轉 30s/圈）
+        activeAnimators += ObjectAnimator.ofFloat(ringOuterView, "rotation", 0f, 360f).apply {
+            duration = 30_000L
+            repeatCount = ObjectAnimator.INFINITE
+            interpolator = android.view.animation.LinearInterpolator()
+            start()
         }
-        activeAnimators += pulse(ringOuterView, 0.15f, 0.55f)   // 外層光暈
-        activeAnimators += pulse(ringInnerView, 0.55f, 0.15f)   // 內層實心環（反向相位）
-        activeAnimators += pulse(glowView, 0.2f, 0.6f)          // 頭像外發光
+        activeAnimators += ObjectAnimator.ofFloat(ringInnerView, "rotation", 0f, -360f).apply {
+            duration = 30_000L
+            repeatCount = ObjectAnimator.INFINITE
+            interpolator = android.view.animation.LinearInterpolator()
+            start()
+        }
         starfieldBgView.startStars()                            // 星空主背景（僅來電態）
-        rippleView.startRipples()                               // 擴散漣漪（僅來電態）
+        rippleView.startRipples()                               // 銀河漣漪（僅來電態）
+        auroraView.start()                                      // D17 極光（星雲緩流）
+        edgeHaloView.start()                                    // D17 邊緣呼吸光環
         handler.removeCallbacks(textPulseRunnable)
         handler.postDelayed(textPulseRunnable, 350L)            // 文字微光（等進場淡入結束）
     }
@@ -385,8 +467,18 @@ class IncomingCallActivity : Activity() {
 
     private fun cancelRingPulse() {
         handler.removeCallbacks(textPulseRunnable)
+        handler.removeCallbacks(beatBright)
+        handler.removeCallbacks(beatDim)
         activeAnimators.forEach { it.cancel() }
         activeAnimators.clear()
+    }
+
+    /** D17：極光＋邊緣光環停止（missed/disconnected）。 */
+    private fun stopGalaxyEffects() {
+        auroraView.stop()
+        edgeHaloView.stop()
+        auroraView.visibility = View.GONE
+        edgeHaloView.visibility = View.GONE
     }
 
     /** 進場：頭像＋名字 scale 0.85→1.0（240ms）；標題/副標淡入（300ms）。 */

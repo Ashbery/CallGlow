@@ -92,7 +92,7 @@ object OverlayHelper {
             overlayRingOuter?.animate()?.alpha(0.55f)?.setDuration(140L)?.start()
             overlayRingInner?.animate()?.alpha(0.15f)?.setDuration(140L)?.start()
             overlayGlow?.animate()?.alpha(0.6f)?.setDuration(140L)?.start()
-            overlaySub?.animate()?.alpha(1f)?.setDuration(140L)?.start()   // D17.8
+            overlaySub?.animate()?.alpha(1f)?.scaleX(1.06f)?.scaleY(1.06f)?.setDuration(240L)?.start()   // D17.9 心跳脈動
             handler.postDelayed(beatDimRunnable, overlayBeatOnMs)
         }
     }
@@ -102,7 +102,7 @@ object OverlayHelper {
             overlayRingOuter?.animate()?.alpha(0.15f)?.setDuration(200L)?.start()
             overlayRingInner?.animate()?.alpha(0.55f)?.setDuration(200L)?.start()
             overlayGlow?.animate()?.alpha(0.2f)?.setDuration(200L)?.start()
-            overlaySub?.animate()?.alpha(0.45f)?.setDuration(200L)?.start()   // D17.8
+            overlaySub?.animate()?.alpha(0.72f)?.scaleX(1f)?.scaleY(1f)?.setDuration(320L)?.start()
             handler.postDelayed(beatBrightRunnable, overlayBeatOffMs)
         }
     }
@@ -597,6 +597,8 @@ object OverlayHelper {
             overlayTitle?.alpha = 1f
             overlayName?.alpha = 1f
             overlaySub?.alpha = 1f
+            overlaySub?.scaleX = 1f
+            overlaySub?.scaleY = 1f
         }
         overlayStarfield?.stopStars()
         overlayRipple?.stopRipples()

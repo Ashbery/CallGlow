@@ -118,11 +118,11 @@ class BlePeripheralService : Service() {
     private var displayState: String? = null
 
     /**
-     * 螢幕狀態接收（D15，2026-08-17 使用者實測裁決）：
-     * - SCREEN_ON：CALLING 中 → 重掛震動（ColorOS 息屏會取消第三方 haptic）；
-     *   uiHiddenByScreenOff=false 時才重試 Activity 路徑（BAL 受限時 overlay → 亮屏後換 Activity）
-     * - SCREEN_OFF：任何通知畫面（call/missed/disconnected）可見 → 發 HIDE_UI 結束畫面（不結束通話），
-     *   抬腕不再重顯示；CALLING 中另啟動週期性震動重掛（5s），直到接通/掛斷或亮屏
+     * 螢幕狀態接收（D15 修正 2026-08-17 使用者二次實測裁決）：
+     * - CALLING（對方未掛斷）：息屏只重掛震動（不隱藏畫面）；每次抬腕都重新顯示來電畫面，
+     *   直到接通/掛斷。
+     * - MISSED/DISCONNECTED（通知類）：顯示一次，息屏即隱藏、抬腕不再重顯。
+     * - SCREEN_ON：CALLING 中 → 重掛震動；未接/斷線且未被隱藏過才重試 Activity 路徑。
      */
     private val screenStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -135,7 +135,12 @@ class BlePeripheralService : Service() {
                         stopVibrationRearmLoop()
                     }
                     val st = displayState ?: return
-                    if (st != Protocol.STATE_END && !IncomingCallActivity.isVisible && !uiHiddenByScreenOff) {
+                    if (st == Protocol.STATE_END) return
+                    if (IncomingCallActivity.isVisible) return
+                    if (st == Protocol.STATE_CALL) {
+                        // 未掛斷：每次抬腕都重新顯示來電畫面
+                        startCallActivity(st, currentName, currentKind)
+                    } else if (!uiHiddenByScreenOff) {
                         startCallActivity(st, currentName, currentKind)
                     }
                 }
@@ -146,17 +151,14 @@ class BlePeripheralService : Service() {
                             ",\"visible\":" + IncomingCallActivity.isVisible + ",\"state\":" + displayState + "}"
                     )
                     if (callState == CallState.CALLING) {
-                        // ColorOS 息屏會取消震動 → 立即重掛＋5s 週期重掛
+                        // ColorOS 息屏會取消震動 → 立即重掛＋5s 週期重掛；畫面不動（抬腕要再看）
                         mainHandler.postDelayed({ vibratorController.rearmCall() }, 400L)
                         startVibrationRearmLoop()
-                    }
-                    // 通知畫面（來電/未接/斷線）一律息屏即隱藏；下次抬腕不再顯示。
-                    // 注意：不可檢查 isVisible——onStop 先於 SCREEN_OFF 廣播執行，旗標已被清。
-                    // Activity 不存在時 HIDE_UI 為無害 no-op；receiver 註冊於 onCreate 才能收到。
-                    if (displayState != null && displayState != Protocol.STATE_END) {
+                    } else if (displayState != null && displayState != Protocol.STATE_END) {
+                        // 僅通知類（未接/斷線）息屏即隱藏，抬腕不再顯示
                         uiHiddenByScreenOff = true
                         sendBroadcast(Intent(Protocol.ACTION_HIDE_UI).setPackage(packageName))
-                        OverlayHelper.dismiss()   // overlay 備援路徑同隱藏
+                        OverlayHelper.dismiss()
                     }
                 }
             }

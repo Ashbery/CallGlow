@@ -2,11 +2,15 @@
 
 ## 為什麼需要這個專案？
 
-**國行（中國版）OPPO Watch／ColorOS Watch 沒有 Google 服務框架（GMS），
-因此「手錶上裝不了 LINE」——也就收不到 LINE 的來電通知。**
+**Wear OS 手錶不需要安裝 LINE 就能顯示 LINE 來電**——LINE 的來電通知是「通話類通知」，
+Google Play services 的通知橋接服務會把手機上的這類通知鏡像到手錶，
+並以全螢幕通話介面呈現（所以 Wear OS 用戶從沒想過這是個問題）。
 
-市面上的 Wear OS 錶可以從 Play Store 裝 LINE 直接接電話，但國行 ColorOS 錶不行。
-CallGlow 用一條「手機 → BLE → 手錶」的私有通道繞過這個限制：
+**但國行（中國版）OPPO Watch／ColorOS Watch 沒有 Google 服務框架（GMS），
+這套通知橋接服務不存在**——就算手機裝了 LINE，來電通知也推不上手錶；
+只有一般「訊息類」通知能透過手錶廠商（OHealth／HeyTap）的鏡像進入手錶。
+
+CallGlow 用一條「手機 → BLE → 手錶」的私有通道補上這個缺口：
 
 > 手機上的 LINE 收到語音／視訊來電 → 手機端 App 用 NotificationListenerService
 > 讀到來電通知 → 透過 BLE（Nordic UART Service）即時推送到手錶 →
@@ -14,10 +18,10 @@ CallGlow 用一條「手機 → BLE → 手錶」的私有通道繞過這個限�
 
 手錶只負責**明顯提醒**、不接聽（接聽仍請用手機）；全程不依賴 GMS／Google Play services。
 
-| 情境 | 結果 |
-|---|---|
-| 國行 ColorOS Watch（無 GMS） | ✅ 可以收到 LINE 來電通知（本專案主場） |
-| Wear OS 錶（有 GMS） | 可直接裝 LINE，本專案非必要（但仍可用） |
+| 情境 | 來電通知 | 訊息通知 | CallGlow 需求 |
+|---|---|---|---|
+| Wear OS 錶（有 GMS） | ✅ Google 橋接直達 | ✅ | 非必要 |
+| 國行 ColorOS Watch（無 GMS） | ❌ 推不上來 | ✅（OHealth/HeyTap 鏡像） | **需要（本專案主場）** |
 
 ## 硬體與環境
 

@@ -7,8 +7,10 @@
 - A 極光：AuroraView 改寫——三團柔光（紫下/青左/洋紅右，alpha ≤0.10）30s 繞屏中心緩轉（星雲流動）。
 - C 光環隨震動節拍：ring 明滅與震動同步（亮相 140ms／熄 200ms；自訂節奏讀 pattern [on,off]，
   系統效果模式 700ms 循環近似）；外環正轉、內環反轉 30s/圈（sweep 漸層旋轉）。
-- F 邊緣呼吸光環：EdgeHaloView——圓屏最外圈 3dp 細環（離邊 6dp），sweep 銀河漸層，
-  3s 呼吸（alpha 0.15→0.5）＋45s 自轉；畫於星空下、內容上。
+- F 邊緣光帶（D17.1 升級，使用者回饋「單線太單調」）：EdgeHaloView 四層組合——
+  寬柔光帶 10dp 貼邊（離邊 1.5dp）打底＋分段亮弧 4dp（sweep 夾透明缺口＝星河不連續感）
+  ＋細亮核心 2dp＋28 顆隨機閃爍星點（大小 0.7–2.3dp、週期 1.2–3.8s、五色），
+  3s 呼吸（alpha 0.15→0.55）＋40s 自轉；畫於星空下、內容上。
 - 漣漪：RippleView 三圈改染紫/青/洋紅。
 - 首字頭像底：CALLING 改 bg_avatar_galaxy（radial 靛→深紫）。
 - 長名字：12sp 仍超出屏寬 70% → 固定 16sp＋marquee 橫向滾動（Activity 與 overlay 同步）。

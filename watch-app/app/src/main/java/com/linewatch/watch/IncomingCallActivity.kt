@@ -97,6 +97,7 @@ class IncomingCallActivity : Activity() {
             ringOuterView.animate().alpha(0.55f).setDuration(140L).start()
             ringInnerView.animate().alpha(0.15f).setDuration(140L).start()
             glowView.animate().alpha(0.6f).setDuration(140L).start()
+            subtitleView.animate().alpha(1f).setDuration(140L).start()   // D17.8：副標隨節拍亮
             handler.postDelayed(beatDim, beatOnMs)
         }
     }
@@ -106,6 +107,7 @@ class IncomingCallActivity : Activity() {
             ringOuterView.animate().alpha(0.15f).setDuration(200L).start()
             ringInnerView.animate().alpha(0.55f).setDuration(200L).start()
             glowView.animate().alpha(0.2f).setDuration(200L).start()
+            subtitleView.animate().alpha(0.45f).setDuration(200L).start()   // D17.8：副標隨節拍暗
             handler.postDelayed(beatBright, beatOffMs)
         }
     }
@@ -297,13 +299,13 @@ class IncomingCallActivity : Activity() {
         auroraView.visibility = View.VISIBLE
         edgeHaloView.visibility = View.VISIBLE
         titleView.setText(if (kind == "video") R.string.title_incoming_video else R.string.title_incoming)
-        titleView.setTextColor(getColor(R.color.text_primary))
+        titleView.setTextColor(getColor(R.color.line_green))   // D17.8：LINE 品牌綠，與白色名字區分
         tintAvatar(getColor(R.color.line_green))   // D17：CALLING 走銀河 drawable（見 tintAvatar）
         nameView.text = callerName
         nameView.setTextColor(getColor(R.color.text_primary))
         applyNameDisplay(callerName)
         subtitleView.setText(R.string.subtitle_vibrating)
-        subtitleView.setTextColor(getColor(R.color.line_green))
+        subtitleView.setTextColor(getColor(R.color.galaxy_cyan))  // D17.8：星雲青副標（與標題綠區分）
         startRingPulse()
         playEntrance()
     }
@@ -460,6 +462,7 @@ class IncomingCallActivity : Activity() {
             glowView.alpha = 0.2f
             titleView.alpha = 1f
             nameView.alpha = 1f
+            subtitleView.alpha = 1f
         }
         starfieldBgView.stopStars()   // 靜止為極淡靜態星空（alpha 0.15）
         rippleView.stopRipples()      // 漣漪停止（靜態背景）

@@ -48,13 +48,13 @@ integration-tester 靜態驗證通過（2026-08-17）：
 - 應用選單出現（resolve-activity=SettingsActivity）；設定功能實測：強度 200→波形 [600,400] 振幅 [200,0]；弱 100＋急促→[300,150] 振幅 [100,0]；設定 JSON log 正常；測試來電/停止正常。
 - 觀察（低風險，記錄備查）：一次 ADB 瞬斷後首測震動 null、重試正常 → 判為連線競態非程式問題。
 
-## §5.0/§5.1 六通真實來電採樣 — ✅ 全過（15:47~15:49，全 voice、名字「林芃宇」正確、BLE start ≤2s、ack 正常、心跳 seq 連續每 10s）
+## §5.0/§5.1 六通真實來電採樣 — ✅ 全過（15:47~15:49，全 voice、名字「測試聯絡人」正確、BLE start ≤2s、ack 正常、心跳 seq 連續每 10s）
 
 | 通次 | 場景 | 序列（logcat） | 判讀 |
 |---|---|---|---|
 | 1 | 接聽 | start → removed → Ongoing 205ms 到達 →「ongoing while idle (answered, verdict settled)」→ 窗到期「no action (answered)」 | ✅ 接聽即停、不顯示未接（C-lite 抑制生效） |
 | 2 | 拒接 | removed → 通 3 於窗內到達 → 新響鈴解除窗 | ✅ 無誤顯（新來電正確解除判定窗） |
-| 3 | 對方掛斷（33s） | removed → 5s 到期「default missed reason=8 delay=5009ms」→ 補送 t="missed" → 手錶「IDLE 收到 missed → 顯示未接畫面（不震動）：林芃宇」＋ack type=missed | ✅ **核心驗收通過** |
+| 3 | 對方掛斷（33s） | removed → 5s 到期「default missed reason=8 delay=5009ms」→ 補送 t="missed" → 手錶「IDLE 收到 missed → 顯示未接畫面（不震動）：測試聯絡人」＋ack type=missed | ✅ **核心驗收通過** |
 | 4 | 浸泡 | removed → 通 5 於窗內 → 解除 | ✅ |
 | 5 | 浸泡 | removed → 通 6 於窗內 → 解除 | ✅ |
 | 6 | 浸泡 | removed → 到期「default missed delay=5006ms」→ 手錶未接畫面＋ack | ✅ |

@@ -11,7 +11,7 @@
 | C 拒接 | ✅ 重測通過 | removed reason=8→end(false) 停震 |
 | D 未接 | ✅ 實作完成（C-lite）＋單測覆蓋；真實來電三情境複測**併入 T5** | LINE 實測不貼未接通知（兩次證據）→ captain 裁示 C-lite：removed→end(false)＋5s 窗（窗內 ongoing→answered 抑制；未接通知→missed；到期無訊號→預設 missed）。實作經 integration-tester 靜態驗證：MissedVerdict 三態＋onOngoing markAnswered（含 IDLE）＋onVerdictExpired 回 MISSED＋listener 5s 到期回呼與證據 log ✅。56 JVM 用例全綠 |
 | 視訊變體 | ✅ | kind=video 正確區分 |
-| 名稱變體 | ✅ | 林芃宇 解析正確（中文名） |
+| 名稱變體 | ✅ | 測試聯絡人 解析正確（中文名） |
 | 顯示路徑 | ✅ T3 已驗證 | 亮屏 Activity／關屏 turnScreenOn 主路徑；overlay 備援就緒（T4 首輪手錶在充電座未複驗畫面，T5 常規驗證一併觀察） |
 
 驗收結論：四場景核心行為全部達標（D 以 C-lite 裁示為準）；雙端 log 無 FATAL；來電提醒成功率 4/4。
@@ -43,7 +43,7 @@ Incoming 與 Ongoing 通知皆帶 largeIcon=156x156（對方 LINE 頭像）→ v
 
 | 通次 | 時間 | 類型 | 名字 | 序列 | 初步結果 |
 |---|---|---|---|---|---|
-| 1 | 15:03:51 | voice | 林芃宇 | start ✅ → 15:04:12 removed → end(false)（通話 21s，對方掛斷） | ❌ 未見 missed=true → 手錶無未接畫面（D 場景失敗） |
+| 1 | 15:03:51 | voice | 測試聯絡人 | start ✅ → 15:04:12 removed → end(false)（通話 21s，對方掛斷） | ❌ 未見 missed=true → 手錶無未接畫面（D 場景失敗） |
 | 2 | 15:04:22 | voice | — | start ✅ → 15:04:39 end(false)（17s） | ✅ B/C 行為正常 |
 | 3 | 15:04:39 | voice | — | start ✅ → 15:04:49 end(false)（10s） | ✅ |
 | 4 | 15:05:30 | **video** | — | start ✅（kind=video 正確）→ 15:05:45 end(false) | ✅ 視訊辨識正確 |

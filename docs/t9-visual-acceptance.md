@@ -7,7 +7,7 @@
 ```
 set WT=%WT%
 :: 1) 觸發來電畫面（深連結，可重複）
-adb -s %WT% shell am start -n com.linewatch.watch/.IncomingCallActivity --es name 林芃宇 --ez missed false
+adb -s %WT% shell am start -n com.linewatch.watch/.IncomingCallActivity --es name 測試聯絡人 --ez missed false
 :: 2) 截圖（每次換檔名）
 adb -s %WT% shell screencap -p /sdcard/t9_call.png
 adb -s %WT% pull /sdcard/t9_call.png t9-screens/t9_call.png

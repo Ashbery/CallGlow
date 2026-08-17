@@ -53,7 +53,7 @@ object ColorOsWhitelist {
                 if (!cur.split(",").contains(context.packageName)) {
                     val nv = if (cur.isEmpty()) context.packageName else cur + "," + context.packageName
                     Settings.Global.putString(cr, key, nv)
-                    Log.i(Protocol.LOG_TAG, "whitelist_ensure: 已加入 " + key)
+                    Protocol.logI("whitelist_ensure: 已加入 " + key)
                     Protocol.logEvent("{\"t\":\"whitelist_ensure\",\"key\":\"" + key + "\",\"ok\":true}")
                 }
             } catch (e: Exception) {

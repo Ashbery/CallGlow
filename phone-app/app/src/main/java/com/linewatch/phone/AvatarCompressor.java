@@ -25,10 +25,10 @@ public final class AvatarCompressor {
             for (int q : QUALITIES) {
                 byte[] jpeg = encode(square, q);
                 if (jpeg != null && jpeg.length <= AvatarTransfer.MAX_JPEG_BYTES) {
-                    Log.d(TAG, "avatar compressed: " + jpeg.length + " bytes (q=" + q + ")");
+                    Logs.d(TAG, "avatar compressed: " + jpeg.length + " bytes (q=" + q + ")");
                     return jpeg;
                 }
-                Log.d(TAG, "avatar q=" + q + " too large: " + (jpeg == null ? -1 : jpeg.length) + " bytes");
+                Logs.d(TAG, "avatar q=" + q + " too large: " + (jpeg == null ? -1 : jpeg.length) + " bytes");
             }
             return null;
         } finally {

@@ -317,7 +317,7 @@ class BlePeripheralService : Service() {
         service.addCharacteristic(cmdChar)
         service.addCharacteristic(stateChar)
         gattServer?.addService(service)
-        Log.i(TAG, "GattServer 已建立（NUS）")
+        Protocol.logI("GattServer 已建立（NUS）")
     }
 
     /** 要求開始廣播（斷線後）。所有廣告操作在 worker thread 序列化，避免 stop/start 競態。 */
@@ -385,7 +385,7 @@ class BlePeripheralService : Service() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
             if (advState == AdvState.STARTING) {
                 advState = AdvState.ADVERTISING
-                Log.i(TAG, "BLE 廣播開始（LOW_LATENCY）")
+                Protocol.logI("BLE 廣播開始（LOW_LATENCY）")
             } else {
                 // 成功回呼前已被要求停止（如快速重連）→ 補一次停止
                 Log.w(TAG, "廣播成功回呼時狀態非 STARTING → 補停止")
@@ -460,7 +460,7 @@ class BlePeripheralService : Service() {
                     startAdvertisingLocked()
                 }
             } else {
-                Log.d(TAG, "keepalive：狀態正常（connected=$connected adv=$advActive）")
+                Protocol.logD("keepalive：狀態正常（connected=$connected adv=$advActive）")
             }
             Protocol.logEvent(
                 JSONObject().put("t", "keepalive_check")
@@ -484,7 +484,7 @@ class BlePeripheralService : Service() {
 
         override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                Log.i(TAG, "手機已連線: ${device.address}")
+                Protocol.logI("手機已連線: ${device.address}")
                 Protocol.logEvent(
                     JSONObject().put("t", "connect").put("addr", device.address).toString()
                 )
@@ -501,7 +501,7 @@ class BlePeripheralService : Service() {
                     updateNotification(getString(R.string.notification_connected))
                 }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                Log.i(TAG, "手機已斷線: ${device.address}")
+                Protocol.logI("手機已斷線: ${device.address}")
                 Protocol.logEvent(
                     JSONObject().put("t", "disconnect").put("addr", device.address).toString()
                 )
@@ -532,7 +532,7 @@ class BlePeripheralService : Service() {
             value: ByteArray
         ) {
             if (characteristic.uuid == UUID.fromString(Protocol.CHAR_CMD_UUID) && offset == 0) {
-                Log.d(TAG, "收到指令: ${String(value, Charsets.UTF_8)}")
+                Protocol.logD("收到指令: ${String(value, Charsets.UTF_8)}")
                 val cmd = Protocol.parseCommand(value)
                 mainHandler.post { handleCommand(cmd) }
                 if (responseNeeded) {
@@ -578,7 +578,7 @@ class BlePeripheralService : Service() {
 
     private fun handleCommand(cmd: Protocol.Command?) {
         if (cmd == null) {
-            Log.d(TAG, "無效指令，忽略")
+            Protocol.logD("無效指令，忽略")
             return
         }
         when (cmd.t) {
@@ -616,7 +616,7 @@ class BlePeripheralService : Service() {
             "av_start" -> handleAvatarStart(cmd)
             "av_chunk" -> handleAvatarChunk(cmd)
             "av_end" -> handleAvatarEnd(cmd)
-            else -> Log.d(TAG, "未知指令類型忽略: ${cmd.t}")
+            else -> Protocol.logD("未知指令類型忽略: ${cmd.t}")
         }
     }
 
@@ -790,7 +790,7 @@ class BlePeripheralService : Service() {
         watchdog.arm()                   // 120s 看門狗
         updateNotification(getString(R.string.notification_calling, name))
         showStateUi(Protocol.STATE_CALL, name, kind)
-        Log.i(TAG, "進入 CALLING：$name（$kind）")
+        Protocol.logI("進入 CALLING：$name（$kind）")
     }
 
     private fun endCall(missed: Boolean) {
@@ -801,7 +801,7 @@ class BlePeripheralService : Service() {
         watchdog.cancel()
         vibratorController.stop()
         if (!wasCalling && !missed) {
-            Log.d(TAG, "IDLE 收到 end(missed=false)，無需動作")
+            Protocol.logD("IDLE 收到 end(missed=false)，無需動作")
             return
         }
         if (missed) {
@@ -809,11 +809,11 @@ class BlePeripheralService : Service() {
             vibratorController.startMissed()
             updateNotification(getString(R.string.notification_waiting))
             showStateUi(Protocol.STATE_MISSED, currentName, currentKind)
-            Log.i(TAG, "未接來電：$currentName")
+            Protocol.logI("未接來電：$currentName")
         } else {
             updateNotification(getString(R.string.notification_waiting))
             showStateUi(Protocol.STATE_END, currentName, currentKind)
-            Log.i(TAG, "來電結束")
+            Protocol.logI("來電結束")
         }
     }
 
@@ -827,7 +827,7 @@ class BlePeripheralService : Service() {
         currentName = name
         currentKind = kind
         if (callState == CallState.CALLING) {
-            Log.i(TAG, "RINGING 收到 missed → 視同 end(missed=true)")
+            Protocol.logI("RINGING 收到 missed → 視同 end(missed=true)")
             endCall(missed = true)
         } else {
             callState = CallState.IDLE
@@ -836,7 +836,7 @@ class BlePeripheralService : Service() {
             watchdog.cancel()
             updateNotification(getString(R.string.notification_waiting))
             showStateUi(Protocol.STATE_MISSED, name, kind)
-            Log.i(TAG, "IDLE 收到 missed → 顯示未接畫面（不震動）：$name")
+            Protocol.logI("IDLE 收到 missed → 顯示未接畫面（不震動）：$name")
         }
     }
 

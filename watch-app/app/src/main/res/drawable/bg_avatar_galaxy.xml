@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- D17 銀河首字頭像底：深空紫→靛 radial -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <gradient
+        android:type="radial"
+        android:gradientRadius="30dp"
+        android:startColor="@color/galaxy_indigo"
+        android:centerColor="@color/galaxy_purple"
+        android:endColor="#1A237E" />
+</shape>

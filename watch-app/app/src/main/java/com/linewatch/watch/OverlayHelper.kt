@@ -83,7 +83,30 @@ object OverlayHelper {
     private var overlayGlow: View? = null
     private var overlayRingOuter: View? = null
     private var overlayRingInner: View? = null
+    // D17 節拍明滅（與震動同步）
+    private var overlayBeatOnMs = 600L
+    private var overlayBeatOffMs = 400L
+    private val beatBrightRunnable: Runnable = object : Runnable {
+        override fun run() {
+            if (currentMode != Mode.CALL) return
+            overlayRingOuter?.animate()?.alpha(0.55f)?.setDuration(140L)?.start()
+            overlayRingInner?.animate()?.alpha(0.15f)?.setDuration(140L)?.start()
+            overlayGlow?.animate()?.alpha(0.6f)?.setDuration(140L)?.start()
+            handler.postDelayed(beatDimRunnable, overlayBeatOnMs)
+        }
+    }
+    private val beatDimRunnable: Runnable = object : Runnable {
+        override fun run() {
+            if (currentMode != Mode.CALL) return
+            overlayRingOuter?.animate()?.alpha(0.15f)?.setDuration(200L)?.start()
+            overlayRingInner?.animate()?.alpha(0.55f)?.setDuration(200L)?.start()
+            overlayGlow?.animate()?.alpha(0.2f)?.setDuration(200L)?.start()
+            handler.postDelayed(beatBrightRunnable, overlayBeatOffMs)
+        }
+    }
     private var overlayStarfield: StarfieldView? = null
+    private var overlayAurora: AuroraView? = null      // D17
+    private var overlayHalo: EdgeHaloView? = null      // D17
     private var overlayRipple: RippleView? = null
     private var overlayAvatar: TextView? = null
     private var overlayTitle: TextView? = null
@@ -148,6 +171,8 @@ object OverlayHelper {
 
     fun dismiss() {
         cancelRingAnimators()
+        overlayAurora?.stop()
+        overlayHalo?.stop()
         dragAnimator?.cancel()
         dragAnimator = null
         dismissRunnable?.let { handler.removeCallbacks(it) }
@@ -161,6 +186,8 @@ object OverlayHelper {
         root = null
         contentContainer = null
         overlayWm = null
+        overlayAurora = null
+        overlayHalo = null
         overlayGlow = null
         overlayRingOuter = null
         overlayRingInner = null
@@ -293,6 +320,19 @@ object OverlayHelper {
             FrameLayout.LayoutParams.MATCH_PARENT
         ))
         overlayStarfield = starfield
+        // D17 銀河：極光＋邊緣呼吸光環（與 Activity 同視覺）
+        val aurora = AuroraView(context)
+        frame.addView(aurora, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
+        overlayAurora = aurora
+        val halo = EdgeHaloView(context)
+        frame.addView(halo, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
+        overlayHalo = halo
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL   // v3.6：頂部對齊幾何布局（不用 CENTER 溢出模式）
@@ -349,15 +389,27 @@ object OverlayHelper {
         overlayRipple = ripple
         val glow = View(context)
         glow.alpha = 0.2f
-        glow.background = context.getDrawable(R.drawable.bg_glow)?.apply { setTint(accent) }
+        glow.background = if (mode == Mode.CALL) {
+            context.getDrawable(R.drawable.bg_glow_galaxy)   // D17 銀河發光
+        } else {
+            context.getDrawable(R.drawable.bg_glow)?.apply { setTint(accent) }
+        }
         ringContainer.addView(glow, FrameLayout.LayoutParams(dp(68), dp(68), Gravity.CENTER))
         val ringOuter = View(context)
         ringOuter.alpha = 0.15f
-        ringOuter.background = context.getDrawable(R.drawable.bg_ring)?.apply { setTint(accent) }
+        ringOuter.background = if (mode == Mode.CALL) {
+            context.getDrawable(R.drawable.bg_ring_galaxy)   // D17 銀河光環
+        } else {
+            context.getDrawable(R.drawable.bg_ring)?.apply { setTint(accent) }
+        }
         ringContainer.addView(ringOuter, FrameLayout.LayoutParams(dp(68), dp(68), Gravity.CENTER))
         val ringInner = View(context)
         ringInner.alpha = 0.55f
-        ringInner.background = context.getDrawable(R.drawable.bg_ring_inner)?.apply { setTint(accent) }
+        ringInner.background = if (mode == Mode.CALL) {
+            context.getDrawable(R.drawable.bg_ring_galaxy)
+        } else {
+            context.getDrawable(R.drawable.bg_ring_inner)?.apply { setTint(accent) }
+        }
         ringContainer.addView(ringInner, FrameLayout.LayoutParams(dp(60), dp(60), Gravity.CENTER))
         val avatar = TextView(context).apply {
             textSize = 24f
@@ -394,9 +446,13 @@ object OverlayHelper {
                 avatar.background = context.getDrawable(R.drawable.ic_disconnect_kawaii)
             } else {
                 avatar.text = firstCharOf(name)
-                avatar.background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(accent)
+                avatar.background = if (mode == Mode.CALL) {
+                    context.getDrawable(R.drawable.bg_avatar_galaxy)   // D17 銀河首字底
+                } else {
+                    GradientDrawable().apply {
+                        shape = GradientDrawable.OVAL
+                        setColor(accent)
+                    }
                 }
             }
             // 重置：避免 cross-fade 動畫中途切態殘留半透明 alpha
@@ -451,7 +507,19 @@ object OverlayHelper {
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = dp(8) })
         overlayName = nameView
-        // D16：Yomogi 手寫字體（首字/標題/名字；副標在下方聲明後套用）
+        // D17：長名字 → marquee 橫向滾動（12sp 仍超出 70% 寬才啟用）
+        val avail = context.resources.displayMetrics.widthPixels * 0.70f
+        val test = android.text.TextPaint().apply {
+            textSize = 12f * context.resources.displayMetrics.scaledDensity
+            typeface = Fonts.yomogi(context)
+        }
+        if (test.measureText(name) > avail) {
+            nameView.setAutoSizeTextTypeWithDefaults(android.widget.TextView.AUTO_SIZE_TEXT_TYPE_NONE)
+            nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            nameView.ellipsize = android.text.TextUtils.TruncateAt.MARQUEE
+            nameView.marqueeRepeatLimit = -1
+            nameView.isSelected = true
+        }
 
         val sub = TextView(context).apply {
             text = subText
@@ -474,25 +542,46 @@ object OverlayHelper {
         return String(Character.toChars(cp))
     }
 
-    /** v3 特效（僅來電態）：雙層光圈反向相位＋發光＋背景 radial＋文字微光（延遲啟動）。 */
+    /** D17 特效（僅來電態）：光圈隨震動節拍明滅＋30s 自轉、星空、銀河漣漪、極光、邊緣光環。 */
     private fun startRingPulse() {
         cancelRingAnimators()
-        fun pulse(view: View?, from: Float, to: Float, duration: Long = 1200L) {
-            view ?: return
-            view.alpha = from
-            val a = ObjectAnimator.ofFloat(view, "alpha", from, to).apply {
-                this.duration = duration
-                repeatMode = ObjectAnimator.REVERSE
+        // 節拍（與 Activity 同：自訂節奏 / 系統效果 700ms 近似）
+        val appCtx = overlaySub?.context ?: return
+        val useSystem = Prefs.getUseSystemEffect(appCtx)
+        val vibMode = Prefs.getVibMode(appCtx)
+        val (onMs, offMs) = if (useSystem && vibMode.isNotEmpty()) {
+            350L to 350L
+        } else {
+            val p = Prefs.callPatternFor(Prefs.getPatternKey(appCtx))
+            p.getOrElse(0) { 600L } to p.getOrElse(1) { 400L }
+        }
+        overlayRingOuter?.alpha = 0.15f
+        overlayRingInner?.alpha = 0.55f
+        overlayGlow?.alpha = 0.2f
+        overlayBeatOnMs = onMs
+        overlayBeatOffMs = offMs
+        handler.removeCallbacks(beatBrightRunnable)
+        handler.removeCallbacks(beatDimRunnable)
+        handler.post(beatBrightRunnable)   // 亮相相開始
+        // 銀河自轉：外環正轉、內環反轉
+        fun spin(v: View?, deg: Float) {
+            v ?: return
+            val a = ObjectAnimator.ofFloat(v, "rotation", 0f, deg).apply {
+                duration = 30_000L
                 repeatCount = ObjectAnimator.INFINITE
+                interpolator = android.view.animation.LinearInterpolator()
             }
             activeAnimators += a
             a.start()
         }
-        pulse(overlayRingOuter, 0.15f, 0.55f)
-        pulse(overlayRingInner, 0.55f, 0.15f)
-        pulse(overlayGlow, 0.2f, 0.6f)
+        spin(overlayRingOuter, 360f)
+        spin(overlayRingInner, -360f)
         overlayStarfield?.startStars()
         overlayRipple?.startRipples()
+        overlayAurora?.visibility = View.VISIBLE
+        overlayAurora?.start()
+        overlayHalo?.visibility = View.VISIBLE
+        overlayHalo?.start()
         handler.removeCallbacks(textPulseRunnable)
         handler.postDelayed(textPulseRunnable, 350L)
     }
@@ -508,10 +597,16 @@ object OverlayHelper {
         }
         overlayStarfield?.stopStars()
         overlayRipple?.stopRipples()
+        overlayAurora?.stop()
+        overlayAurora?.visibility = View.GONE
+        overlayHalo?.stop()
+        overlayHalo?.visibility = View.GONE
     }
 
     private fun cancelRingAnimators() {
         handler.removeCallbacks(textPulseRunnable)
+        handler.removeCallbacks(beatBrightRunnable)
+        handler.removeCallbacks(beatDimRunnable)
         activeAnimators.forEach { it.cancel() }
         activeAnimators.clear()
     }

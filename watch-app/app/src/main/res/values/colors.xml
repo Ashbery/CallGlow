@@ -7,5 +7,12 @@
     <color name="text_secondary">#B0B0B0</color>
     <color name="alert">#FF8A65</color>
 
+    <!-- D17 銀河主題（來電中特效） -->
+    <color name="galaxy_purple">#7C4DFF</color>
+    <color name="galaxy_indigo">#536DFE</color>
+    <color name="galaxy_blue">#29B6F6</color>
+    <color name="galaxy_cyan">#18FFFF</color>
+    <color name="galaxy_magenta">#E040FB</color>
+
     <color name="ic_launcher_background">#00000000</color>   <!-- v3.16：自訂圓形圖示 → 背景改透明 -->
 </resources>

@@ -12,3 +12,6 @@ captures/
 .DS_Store
 Thumbs.db
 *.log
+
+# 發布 APK（放 GitHub Releases，不入庫）
+releases/

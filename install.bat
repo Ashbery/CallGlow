@@ -16,7 +16,7 @@ echo     [3] 安裝手錶端 APP
 echo     [4] 授權 + 通知監聽 + ColorOS 防凍結白名單
 echo     [5] 啟動手錶提醒服務
 echo.
-echo   全程不需要任何程式經驗，跟著畫面提示做就好。
+echo   依照畫面提示依序完成即可。
 echo.
 pause
 

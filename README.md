@@ -107,12 +107,12 @@ APK 輸出：`phone-app\app\build\outputs\apk\debug\app-debug.apk`、
 `sdk.dir=C\:\\Users\\<你的使用者>\\AppData\\Local\\Android\\Sdk`；
 此檔已加入 .gitignore。）
 
-## 一鍵安裝（零經驗適用，最簡單）
+## 一鍵安裝
 
 ### 事前準備（只需一次）
 
 1. 電腦安裝 [platform-tools](https://developer.android.com/tools/releases/platform-tools)（adb）。
-   最簡單的方式：解壓縮後把本安裝包裡的 install.bat 複製進 platform-tools 資料夾。
+   或把安裝包裡的 install.bat 複製進 platform-tools 資料夾執行。
 2. 手機與手錶都開啟 **USB 偵錯**：
    - 手機：設定 → 關於手機 → 連點「版本號」7 次 → 設定 → 開發者選項 → 開啟「USB 偵錯」
    - 手錶：手錶設定 → 關於 → 連點「版本號」7 次 → 開發者選項 → 開啟「USB 偵錯」

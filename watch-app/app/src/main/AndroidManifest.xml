@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature
+        android:name="android.hardware.bluetooth_le"
+        android:required="true" />
+
+    <!-- Android 11 以下藍牙傳統權限（手錶為 Android 11，安裝即授權） -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <!-- Android 12+ 相容性宣告（本手錶 Android 11 不需要執行期授權） -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- v3.19 ColorOS 凍結自癒：AlarmManager 精確喚醒（API 31+；本錶 30 用不到但宣告無害） -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 備援路徑：Activity 背景啟動受限時用 overlay 提示（docs/architecture.md） -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- v3.20 ColorOS 凍結對策：開機自癒 aod_* 白名單（BmPowerManager 凍結第三方 App 的根因修復）。
+         實測：aod_switch_apps 用 WRITE_SETTINGS(appop) 可寫；aod_support_apps/aod_switch_all_apps 為受保護鍵，
+         第三方 App 即使被授予 WRITE_SECURE_SETTINGS 仍會被拒 → 由 adb 一次性寫入（跨重啟持久） -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.WatchCall">
+
+        <activity
+            android:name=".IncomingCallActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.WatchCall.Translucent"
+            android:turnScreenOn="true" />
+
+        <!-- v2 設定畫面：MAIN/LAUNCHER → 手錶應用選單入口（ui-spec V2-1） -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.WatchCall.Translucent">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".BlePeripheralService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- v3.19 凍結自癒喚醒（僅本 App alarm 觸發，不需對外） -->
+        <receiver
+            android:name=".KeepAliveReceiver"
+            android:exported="false" />
+    </application>
+
+</manifest>

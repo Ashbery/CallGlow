@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 手機端：系統預設淺色背景（ui-spec tokens） -->
+    <style name="Theme.LineWatchPhone" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/line_green</item>
+        <item name="colorSecondary">@color/line_green</item>
+    </style>
+</resources>

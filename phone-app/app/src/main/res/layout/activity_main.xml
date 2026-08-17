@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <!-- 頂部狀態列：藍牙狀態＋手錶名稱（ui-spec 手機端） -->
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/default_status"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvListener"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/default_listener"
+            android:textColor="@color/warn"
+            android:textSize="14sp" />
+
+        <!-- 總開關 -->
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/swEnable"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/master_switch"
+            android:textSize="16sp" />
+
+        <!-- 測試按鈕（LINE 綠，直送 BLE） -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTestCall"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/btn_test_call"
+            android:textColor="@color/white"
+            app:backgroundTint="@color/line_green"
+            app:cornerRadius="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnTestMissed"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/btn_test_missed"
+            android:textColor="@color/white"
+            app:backgroundTint="@color/line_green"
+            app:cornerRadius="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnStopTest"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/btn_stop_test"
+            android:textColor="@color/white"
+            app:backgroundTint="@color/line_green"
+            app:cornerRadius="8dp" />
+
+        <!-- 通知存取跳轉（連結樣式） -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnNotifAccess"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/btn_notif_access"
+            android:textColor="@color/line_green" />
+
+        <!-- 底部說明 -->
+        <TextView
+            android:id="@+id/tvFooter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/footer"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp" />
+    </LinearLayout>
+</ScrollView>

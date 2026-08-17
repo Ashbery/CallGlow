@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 頭像外發光：同色 radial 光暈（顏色於程式內依狀態 tint） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <gradient
+        android:type="radial"
+        android:gradientRadius="36dp"
+        android:startColor="#6606C755"
+        android:centerColor="#2206C755"
+        android:endColor="#0006C755" />
+</shape>

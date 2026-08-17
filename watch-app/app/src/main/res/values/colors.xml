@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- docs/ui-spec.md 設計 tokens -->
+    <color name="watch_black">#000000</color>
+    <color name="line_green">#06C755</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B0B0B0</color>
+    <color name="alert">#FF8A65</color>
+
+    <color name="ic_launcher_background">#00000000</color>   <!-- v3.16：自訂圓形圖示 → 背景改透明 -->
+</resources>

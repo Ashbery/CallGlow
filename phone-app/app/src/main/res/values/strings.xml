@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LINE 來電提醒</string>
+    <string name="notif_service_label">LINE 來電提醒（通知監聽）</string>
+
+    <string name="ble_notif_title">LINE 來電提醒運作中</string>
+    <string name="ble_notif_text">正在維持手錶藍牙連線</string>
+
+    <string name="default_status">藍牙：已斷線</string>
+    <string name="default_listener">通知存取：未授予</string>
+    <string name="ble_status">藍牙：%1$s</string>
+    <string name="listener_status">通知存取：%1$s</string>
+    <string name="granted">已授予</string>
+    <string name="not_granted">未授予</string>
+
+    <string name="master_switch">啟用 LINE 來電提醒</string>
+    <string name="btn_test_call">測試來電</string>
+    <string name="btn_test_missed">測試未接</string>
+    <string name="btn_stop_test">停止測試</string>
+    <string name="btn_notif_access">授予通知存取權限</string>
+    <string name="footer">看門狗 90 秒（手機端）、震動節奏 [600,400]（手錶端 120 秒看門狗）。測試按鈕指令直送 BLE，未連線時僅記錄 log。</string>
+
+    <string name="toast_perm_denied">需要藍牙與通知權限才能運作</string>
+</resources>

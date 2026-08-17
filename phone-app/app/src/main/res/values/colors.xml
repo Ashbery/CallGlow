@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ui-spec.md 設計 tokens -->
+    <color name="line_green">#06C755</color>
+    <color name="white">#FFFFFF</color>
+    <color name="text_secondary">#B0B0B0</color>
+    <color name="warn">#FF8A65</color>
+    <color name="black">#000000</color>
+</resources>

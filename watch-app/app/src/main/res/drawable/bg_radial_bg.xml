@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 背景 radial 綠光（非常 subtle：中心 8% 綠 → 透明） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:type="radial"
+        android:gradientRadius="150dp"
+        android:startColor="#1406C755"
+        android:centerColor="#0806C755"
+        android:endColor="#0006C755" />
+</shape>

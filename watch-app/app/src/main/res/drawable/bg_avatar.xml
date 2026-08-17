@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 首字頭像圓底（顏色於程式內依狀態 tint：來電 LINE 綠／未接警示色／斷線灰） -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/line_green" />
+</shape>

@@ -88,27 +88,27 @@ class EdgeHaloView @JvmOverloads constructor(
         )
         clipPath.reset()
         clipPath.addCircle(cx, cy, inscribed, Path.Direction.CW)
-        // 星點生成（固定種子）
+        // 星點生成（固定種子）——D17.3：密集在原本光環那一圈（半徑 0.84–0.97 窄帶，貼螢幕邊）
         val rnd = Random(20260817)
         stars.clear()
-        // 微星 ×110
-        for (i in 0 until 110) {
+        // 微星 ×230（窄帶密集）
+        for (i in 0 until 230) {
             stars += Star(
                 angleRad = rnd.nextFloat() * 2f * PI.toFloat(),
-                radiusRatio = 0.70f + rnd.nextFloat() * 0.27f,
-                sizeDp = 0.4f + rnd.nextFloat() * 0.8f,
+                radiusRatio = 0.84f + rnd.nextFloat() * 0.13f,
+                sizeDp = 0.35f + rnd.nextFloat() * 0.75f,
                 baseAlpha = 0.25f + rnd.nextFloat() * 0.45f,
                 twinkleSpeed = 1.0f + rnd.nextFloat() * 2.8f,
                 color = starColors[i % starColors.size],
                 bright = false,
             )
         }
-        // 亮星 ×16（十字星芒）
-        for (i in 0 until 16) {
+        // 亮星 ×24（十字星芒，同窄帶）
+        for (i in 0 until 24) {
             stars += Star(
                 angleRad = rnd.nextFloat() * 2f * PI.toFloat(),
-                radiusRatio = 0.76f + rnd.nextFloat() * 0.18f,
-                sizeDp = 1.6f + rnd.nextFloat() * 1.2f,
+                radiusRatio = 0.85f + rnd.nextFloat() * 0.10f,
+                sizeDp = 1.5f + rnd.nextFloat() * 1.1f,
                 baseAlpha = 0.4f + rnd.nextFloat() * 0.4f,
                 twinkleSpeed = 0.5f + rnd.nextFloat() * 1.2f,
                 color = starColors[(i + 2) % starColors.size],

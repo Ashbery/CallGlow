@@ -17,6 +17,8 @@ android {
 
     buildTypes {
         release {
+            // 發布用 debug 簽章（免設定 keystore，可直接安裝；本專案無上架商店需求）
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

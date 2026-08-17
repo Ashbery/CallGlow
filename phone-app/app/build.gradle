@@ -21,6 +21,8 @@ android {
 
     buildTypes {
         release {
+            // 發布用 debug 簽章（可直接安裝）
+            signingConfig signingConfigs.debug
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }

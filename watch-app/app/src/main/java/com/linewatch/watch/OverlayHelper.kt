@@ -296,7 +296,7 @@ object OverlayHelper {
         val content = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL   // v3.6：頂部對齊幾何布局（不用 CENTER 溢出模式）
-            setPadding(0, dp(28), 0, 0)          // v3.9：光環頂＝28dp（頭像圓心 62dp＝屏高 26.6%）
+            setPadding(0, dp(18), 0, 0)          // D16：Yomogi 行高較大 → 補償 10dp（原 28dp）
             clipChildren = false                 // 漣漪祖先容器放行（方形裁剪根因修復）
             clipToPadding = false
         }
@@ -430,7 +430,7 @@ object OverlayHelper {
         v.addView(title, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(14) })
+        ).apply { topMargin = dp(10) })
         overlayTitle = title
 
         // 名字 40sp、自動縮放至 70% 寬（match_parent＋15% padding 約束，密度自適應）
@@ -449,7 +449,7 @@ object OverlayHelper {
         v.addView(nameView, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(10) })
+        ).apply { topMargin = dp(8) })
         overlayName = nameView
         // D16：Yomogi 手寫字體（首字/標題/名字；副標在下方聲明後套用）
 
@@ -462,7 +462,7 @@ object OverlayHelper {
         v.addView(sub, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
-        ).apply { topMargin = dp(8) })
+        ).apply { topMargin = dp(6) })
         overlaySub = sub
         Fonts.applyYomogi(context, avatar, title, nameView, sub)
     }

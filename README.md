@@ -27,6 +27,13 @@ CallGlow 用一條「手機 → BLE → 手錶」的私有通道繞過這個限�
 | 手機 | Android 11+ 任一手機（實測紅魔 11 Pro+ / Android 16；其他品牌需依各廠設定允許通知監聽＋後台運行） |
 | LINE | jp.naver.line.android（來電通知由 NotificationListenerService 讀取） |
 
+## 預覽（來電中）
+
+<p align="center">
+  <img src="docs/screenshots/incoming-call.png" width="200" alt="來電畫面（銀河特效）" />
+  <img src="docs/screenshots/incoming-call-title.png" width="200" alt="來電畫面（文字配色）" />
+</p>
+
 ## 已知限制
 
 - **接聽仍須用手機**：手錶只提醒，沒有接聽/掛斷按鈕（決策見 docs/decisions.md D14）

@@ -88,6 +88,21 @@ class IncomingCallActivity : Activity() {
     private var dragStartRawY = 0f
     private var dragging = false
 
+    // D17.10：副標柔光呼吸（文字恆定，只有 shadow 光暈隨節拍擴散/收縮）
+    private var subGlowRadius = 0f
+    private var subGlowAnimator: android.animation.ValueAnimator? = null
+    private fun subGlowTo(target: Float, duration: Long) {
+        subGlowAnimator?.cancel()
+        subGlowAnimator = android.animation.ValueAnimator.ofFloat(subGlowRadius, target).apply {
+            this.duration = duration
+            addUpdateListener { a ->
+                subGlowRadius = a.animatedValue as Float
+                subtitleView.setShadowLayer(subGlowRadius, 0f, 0f, getColor(R.color.galaxy_cyan))
+            }
+            start()
+        }
+    }
+
     // D17 節拍明滅（與震動同步）：亮相 → 停頓 → 循環
     private var beatOnMs = 600L
     private var beatOffMs = 400L
@@ -97,8 +112,8 @@ class IncomingCallActivity : Activity() {
             ringOuterView.animate().alpha(0.55f).setDuration(140L).start()
             ringInnerView.animate().alpha(0.15f).setDuration(140L).start()
             glowView.animate().alpha(0.6f).setDuration(140L).start()
-            // D17.9：副標心跳脈動（微放大＋漸亮，柔和）
-            subtitleView.animate().alpha(1f).scaleX(1.06f).scaleY(1.06f).setDuration(240L).start()
+            // D17.10：副標柔光呼吸（光暈擴散）
+            subGlowTo(6f * resources.displayMetrics.density, 240L)
             handler.postDelayed(beatDim, beatOnMs)
         }
     }
@@ -108,7 +123,7 @@ class IncomingCallActivity : Activity() {
             ringOuterView.animate().alpha(0.15f).setDuration(200L).start()
             ringInnerView.animate().alpha(0.55f).setDuration(200L).start()
             glowView.animate().alpha(0.2f).setDuration(200L).start()
-            subtitleView.animate().alpha(0.72f).scaleX(1f).scaleY(1f).setDuration(320L).start()
+            subGlowTo(2f * resources.displayMetrics.density, 320L)
             handler.postDelayed(beatBright, beatOffMs)
         }
     }
@@ -464,8 +479,9 @@ class IncomingCallActivity : Activity() {
             titleView.alpha = 1f
             nameView.alpha = 1f
             subtitleView.alpha = 1f
-            subtitleView.scaleX = 1f
-            subtitleView.scaleY = 1f
+            subGlowAnimator?.cancel()
+            subGlowAnimator = null
+            subtitleView.setShadowLayer(0f, 0f, 0f, 0)
         }
         starfieldBgView.stopStars()   // 靜止為極淡靜態星空（alpha 0.15）
         rippleView.stopRipples()      // 漣漪停止（靜態背景）

@@ -6,7 +6,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.RadialGradient
+import android.graphics.SweepGradient
 import android.graphics.Shader
 import android.os.SystemClock
 import android.util.AttributeSet
@@ -19,14 +19,14 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /**
- * D17.5 3D 銀河星盤（使用者提議 3D 動效）：
- * 星帶是「傾斜 32° 的銀河盤面」——3D 點投影到 2D（Canvas 數學，API 30 無 GPU 依賴）：
- * - 每顆星在盤面環帶上有 3D 座標（角度 θ、半徑 r、厚度 z 抖動）
- * - 盤面繞 X 軸傾斜 32° → 投影成橢圓；繞盤面軸 48s 自轉
- * - 景深：靠近觀者的星（z'>0）放大（至 1.3×）＋變亮；遠處縮小（0.6×）＋變暗
- * - 繪製按深度排序（遠→近），前後遮蔽正確 → 真 3D 立體感
- * 星群：微星 ×250／亮星 ×28（十字星芒＋光暈）／高亮星 ×8（純白核＋大光暈）。
- * 整體 3.5s 呼吸（alpha 0.2→0.6）；clipPath 內切圓防滲出；固定種子可重現。
+ * D17.6 現代光環（使用者：回歸光環＋更帥更現代）——多層光環＋雙向軌道彗星：
+ * 1) 寬柔光帶 10dp：貼螢幕邊的全圈銀河柔光（星雲底光，alpha 低）
+ * 2) 分段亮弧 4dp：紫/青/洋紅三段亮弧＋透明缺口（活動環分段感，sweep 漸層）
+ * 3) 細亮核心 2dp：銳利高光線（同分段漸層）
+ * 4) 軌道彗星 ×2：光環上的亮點＋漸隱拖尾——順時針（青白，12s/圈）、逆時針（洋紅，9s/圈），
+ *    像衛星繞行，頭部大光暈
+ * 5) 微星 ×10：環上少量閃爍星點（點綴不搶戲）
+ * 整體 3s 呼吸（alpha 0.25→0.6）＋ 40s 光環本體緩轉；clipPath 內切圓。
  */
 class EdgeHaloView @JvmOverloads constructor(
     context: Context,
@@ -40,40 +40,42 @@ class EdgeHaloView @JvmOverloads constructor(
     private val density = resources.displayMetrics.density
     private val dp = { v: Float -> v * density }
 
-    private val starPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val rayPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val bandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = dp(0.6f)
+        strokeWidth = 10f * density
+    }
+    private val arcPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 4f * density
         strokeCap = Paint.Cap.ROUND
     }
-    private val clipPath = Path()
+    private val corePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2f * density
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val tailPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2.5f * density
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val headPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val headGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val starPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-    private var glowGradients: List<RadialGradient> = emptyList()
+    private val clipPath = Path()
+    private var bandGradient: SweepGradient? = null
+    private var arcGradient: SweepGradient? = null
+    private var coreGradient: SweepGradient? = null
+
+    private var bandRadius = 0f
+    private var coreRadius = 0f
     private var angle = 0f
     private var breathe: ObjectAnimator? = null
     private var rotator: ValueAnimator? = null
 
-    private val tiltDeg = 32f   // 盤面傾角：32° 斜躺的銀河盤
-
-    private class Star(
-        val angleRad: Float,
-        val radiusRatio: Float,     // 0.90–0.99 屏半徑比例（貼螢幕邊）
-        val zJitter: Float,         // 盤面厚度抖動 -1..1（±5% 屏半徑）
-        val sizeDp: Float,
-        val baseAlpha: Float,
-        val twinkleSpeed: Float,
-        val color: Int,
-        val bright: Boolean,       // 亮星（十字星芒＋光暈）
-        val highlight: Boolean,    // 高亮星（純白核＋大光暈＋長星芒）
-    )
-
-    private val stars = mutableListOf<Star>()
-
-    private val starColors = intArrayOf(
-        0xFFFFFFFF.toInt(), 0xFFC9B8FF.toInt(), 0xFFA8F7FF.toInt(),
-        0xFFFFB8F0.toInt(), 0xFFFFE9B8.toInt(),
-    )
+    private class Twinkle(val angleRad: Float, val sizeDp: Float, val baseAlpha: Float, val speed: Float, val color: Int)
+    private val twinkles = mutableListOf<Twinkle>()
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
@@ -81,71 +83,51 @@ class EdgeHaloView @JvmOverloads constructor(
         val cx = w / 2f
         val cy = h / 2f
         val inscribed = min(w, h) / 2f
-        glowGradients = listOf(
-            RadialGradient(cx + inscribed * 0.25f, cy - inscribed * 0.25f, inscribed * 0.9f,
-                intArrayOf(0x0F7C4DFF.toInt(), 0x067C4DFF.toInt(), 0x007C4DFF.toInt()),
-                null, Shader.TileMode.CLAMP),
-            RadialGradient(cx - inscribed * 0.3f, cy + inscribed * 0.2f, inscribed * 0.9f,
-                intArrayOf(0x0D18FFFF.toInt(), 0x0518FFFF.toInt(), 0x0018FFFF.toInt()),
-                null, Shader.TileMode.CLAMP),
-        )
+        bandRadius = inscribed - dp(1.5f)
+        coreRadius = inscribed - dp(3f)
+        bandGradient = SweepGradient(cx, cy, intArrayOf(
+            0x1A7C4DFF.toInt(), 0x1A29B6F6.toInt(), 0x1AE040FB.toInt(), 0x1A18FFFF.toInt(), 0x1A7C4DFF.toInt(),
+        ), null)
+        arcGradient = SweepGradient(cx, cy, intArrayOf(
+            0xAA7C4DFF.toInt(), 0x0018FFFF.toInt(), 0x99E040FB.toInt(), 0x0029B6F6.toInt(),
+            0xAA18FFFF.toInt(), 0x00536DFE.toInt(), 0xAA7C4DFF.toInt(),
+        ), null)
+        coreGradient = SweepGradient(cx, cy, intArrayOf(
+            0xCC7C4DFF.toInt(), 0x0018FFFF.toInt(), 0xCCE040FB.toInt(), 0x0029B6F6.toInt(),
+            0xCC18FFFF.toInt(), 0x00536DFE.toInt(), 0xCC7C4DFF.toInt(),
+        ), null)
         clipPath.reset()
         clipPath.addCircle(cx, cy, inscribed, Path.Direction.CW)
-        // 星群（D17.4 參數：貼邊窄帶＋高亮）
-        val rnd = Random(20260817)
-        stars.clear()
-        for (i in 0 until 250) {
-            stars += Star(
+        bandPaint.shader = bandGradient
+        arcPaint.shader = arcGradient
+        corePaint.shader = coreGradient
+        val rnd = Random(20260818)
+        twinkles.clear()
+        val colors = intArrayOf(
+            0xFFFFFFFF.toInt(), 0xFFC9B8FF.toInt(), 0xFFA8F7FF.toInt(), 0xFFFFE9B8.toInt(),
+        )
+        for (i in 0 until 10) {
+            twinkles += Twinkle(
                 angleRad = rnd.nextFloat() * 2f * PI.toFloat(),
-                radiusRatio = 0.90f + rnd.nextFloat() * 0.09f,
-                zJitter = rnd.nextFloat() * 2f - 1f,
-                sizeDp = 0.4f + rnd.nextFloat() * 0.8f,
-                baseAlpha = 0.35f + rnd.nextFloat() * 0.45f,
-                twinkleSpeed = 1.0f + rnd.nextFloat() * 2.8f,
-                color = starColors[i % starColors.size],
-                bright = false,
-                highlight = false,
-            )
-        }
-        for (i in 0 until 28) {
-            stars += Star(
-                angleRad = rnd.nextFloat() * 2f * PI.toFloat(),
-                radiusRatio = 0.91f + rnd.nextFloat() * 0.07f,
-                zJitter = rnd.nextFloat() * 2f - 1f,
-                sizeDp = 1.6f + rnd.nextFloat() * 1.1f,
-                baseAlpha = 0.55f + rnd.nextFloat() * 0.35f,
-                twinkleSpeed = 0.5f + rnd.nextFloat() * 1.2f,
-                color = starColors[(i + 2) % starColors.size],
-                bright = true,
-                highlight = false,
-            )
-        }
-        for (i in 0 until 8) {
-            stars += Star(
-                angleRad = rnd.nextFloat() * 2f * PI.toFloat(),
-                radiusRatio = 0.92f + rnd.nextFloat() * 0.05f,
-                zJitter = rnd.nextFloat() * 2f - 1f,
-                sizeDp = 2.2f + rnd.nextFloat() * 1.0f,
-                baseAlpha = 0.8f + rnd.nextFloat() * 0.2f,
-                twinkleSpeed = 0.4f + rnd.nextFloat() * 0.6f,
-                color = 0xFFFFFFFF.toInt(),
-                bright = true,
-                highlight = true,
+                sizeDp = 0.5f + rnd.nextFloat() * 0.9f,
+                baseAlpha = 0.3f + rnd.nextFloat() * 0.4f,
+                speed = 1.2f + rnd.nextFloat() * 2.4f,
+                color = colors[i % colors.size],
             )
         }
     }
 
     fun start() {
         if (breathe != null) return
-        alpha = 0.2f
-        breathe = ObjectAnimator.ofFloat(this, "alpha", 0.2f, 0.6f).apply {
-            duration = 3500L
+        alpha = 0.25f
+        breathe = ObjectAnimator.ofFloat(this, "alpha", 0.25f, 0.6f).apply {
+            duration = 3000L
             repeatMode = ObjectAnimator.REVERSE
             repeatCount = ObjectAnimator.INFINITE
             start()
         }
         rotator = ValueAnimator.ofFloat(0f, 360f).apply {
-            duration = 48_000L
+            duration = 40_000L
             repeatCount = ValueAnimator.INFINITE
             interpolator = LinearInterpolator()
             addUpdateListener { a ->
@@ -165,75 +147,71 @@ class EdgeHaloView @JvmOverloads constructor(
         invalidate()
     }
 
-    // 3D 投影快取（每幀重建，避免物件分配）
-    private data class Projected(var depth: Float, var sx: Float, var sy: Float, var sizePx: Float, var alpha: Int, var color: Int, var bright: Boolean, var highlight: Boolean, var tw: Float)
-    private val projected = ArrayList<Projected>(286)
-
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (rotator == null || stars.isEmpty()) return
+        if (rotator == null || coreRadius <= 0f) return
         val save = canvas.save()
         canvas.clipPath(clipPath)
         val cx = width / 2f
         val cy = height / 2f
-        val inscribed = min(width, height) / 2f
-        // 1) 星雲底霧（隨傾角：橢圓分佈的柔光）
-        glowGradients.forEach { g ->
-            glowPaint.shader = g
-            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), glowPaint)
-        }
-        glowPaint.shader = null
-        // 2) 3D 投影
-        val tiltRad = Math.toRadians(tiltDeg.toDouble()).toFloat()
-        val cosT = cos(tiltRad)
-        val sinT = sin(tiltRad)
-        val spin = Math.toRadians(angle.toDouble()).toFloat()
-        val now = SystemClock.uptimeMillis() / 1000f
-        projected.clear()
-        for (s in stars) {
-            val th = s.angleRad + spin
-            val r = inscribed * s.radiusRatio
-            val x3 = cos(th) * r
-            val y3 = sin(th) * r
-            val z3 = s.zJitter * inscribed * 0.05f
-            // 繞 X 軸傾斜（盤面斜躺）
-            val yp = y3 * cosT - z3 * sinT
-            val zp = y3 * sinT + z3 * cosT   // zp>0 = 靠近觀者
-            val depth = zp / inscribed       // -1..1
-            val pscale = 1f + 0.3f * depth   // 近大遠小（0.7–1.3）
-            val sx = cx + x3 * pscale
-            val sy = cy + yp * pscale
-            val tw = 0.55f + 0.45f * sin(now * s.twinkleSpeed + s.angleRad * 9f)
-            val sizePx = dp(s.sizeDp) * (0.6f + 0.7f * (depth + 1f) / 2f) * (0.9f + 0.2f * tw)
-            val alpha = (s.baseAlpha * tw * (0.45f + 0.55f * (depth + 1f) / 2f) * 255f).toInt().coerceIn(0, 255)
-            projected += Projected(depth, sx, sy, sizePx, alpha, s.color, s.bright, s.highlight, tw)
-        }
-        // 遠 → 近排序（後方星先畫，前方星蓋上）
-        projected.sortBy { it.depth }
-        for (p in projected) {
-            if (p.bright) {
-                val haloR = p.sizePx * (if (p.highlight) 4.5f else 3f)
-                glowPaint.color = p.color
-                glowPaint.alpha = (p.alpha * (if (p.highlight) 0.30f else 0.18f)).toInt().coerceIn(0, 255)
-                canvas.drawCircle(p.sx, p.sy, haloR, glowPaint)
-            }
-            starPaint.color = p.color
-            starPaint.alpha = p.alpha
-            canvas.drawCircle(p.sx, p.sy, p.sizePx, starPaint)
-            if (p.bright) {
-                val rayLen = p.sizePx * (if (p.highlight) 3.4f + 2.0f * p.tw else 2.2f + 1.8f * p.tw)
-                rayPaint.color = p.color
-                rayPaint.alpha = (p.alpha * (if (p.highlight) 0.8f else 0.55f)).toInt().coerceIn(0, 255)
-                canvas.drawLine(p.sx - rayLen, p.sy, p.sx + rayLen, p.sy, rayPaint)
-                canvas.drawLine(p.sx, p.sy - rayLen, p.sx, p.sy + rayLen, rayPaint)
-            }
-            if (p.highlight) {
-                starPaint.color = 0xFFFFFFFF.toInt()
-                starPaint.alpha = p.alpha
-                canvas.drawCircle(p.sx, p.sy, p.sizePx * 0.55f, starPaint)
-            }
-        }
+        // 光環本體（緩轉）
+        canvas.rotate(angle, cx, cy)
+        canvas.drawCircle(cx, cy, bandRadius, bandPaint)
+        canvas.drawCircle(cx, cy, coreRadius, arcPaint)
+        canvas.drawCircle(cx, cy, coreRadius, corePaint)
         canvas.restoreToCount(save)
+
+        // 微星（跟本體同轉）
+        val now = SystemClock.uptimeMillis() / 1000f
+        val rad = Math.toRadians(angle.toDouble()).toFloat()
+        for (t in twinkles) {
+            val a = t.angleRad + rad
+            val x = cx + cos(a) * coreRadius
+            val y = cy + sin(a) * coreRadius
+            val tw = 0.55f + 0.45f * sin(now * t.speed + t.angleRad * 7f)
+            starPaint.color = t.color
+            starPaint.alpha = (t.baseAlpha * tw * 255f).toInt().coerceIn(0, 255)
+            canvas.drawCircle(x, y, dp(t.sizeDp), starPaint)
+        }
+
+        // 軌道彗星 ×2（與光環反向/同向不同速 → 衛星繞行感）
+        drawComet(canvas, cx, cy, now, clockwise = true, periodS = 12f, phase = 0f,
+            color = 0xFFA8F7FF.toInt(), headSizeDp = 2.6f, tailLenDeg = 55f)
+        drawComet(canvas, cx, cy, now, clockwise = false, periodS = 9f, phase = 170f,
+            color = 0xFFFF9BF5.toInt(), headSizeDp = 2.4f, tailLenDeg = 65f)
+    }
+
+    /** 軌道彗星：頭部亮點＋光暈＋沿環漸隱拖尾（分段畫弧，alpha 遞減）。 */
+    private fun drawComet(
+        canvas: Canvas, cx: Float, cy: Float, now: Float,
+        clockwise: Boolean, periodS: Float, phase: Float, color: Int,
+        headSizeDp: Float, tailLenDeg: Float,
+    ) {
+        val headAngle = (now / periodS * 360f + phase) % 360f
+        val dir = if (clockwise) 1f else -1f
+        // 拖尾：headAngle 向後 tailLenDeg，分 14 段漸隱
+        val segs = 14
+        for (i in 0 until segs) {
+            val f = i / segs.toFloat()
+            val start = headAngle - dir * (f * tailLenDeg)
+            val sweep = -dir * (tailLenDeg / segs)
+            val alpha = ((1f - f) * 0.55f * 255f).toInt()
+            tailPaint.color = color
+            tailPaint.alpha = alpha
+            canvas.drawArc(
+                cx - coreRadius, cy - coreRadius, cx + coreRadius, cy + coreRadius,
+                start, sweep, false, tailPaint,
+            )
+        }
+        // 頭部：光暈＋亮核
+        val hx = cx + cos(Math.toRadians(headAngle.toDouble())).toFloat() * coreRadius
+        val hy = cy + sin(Math.toRadians(headAngle.toDouble())).toFloat() * coreRadius
+        headGlowPaint.color = color
+        headGlowPaint.alpha = 0x55
+        canvas.drawCircle(hx, hy, dp(headSizeDp) * 3.2f, headGlowPaint)
+        headPaint.color = 0xFFFFFFFF.toInt()
+        headPaint.alpha = 0xFF
+        canvas.drawCircle(hx, hy, dp(headSizeDp), headPaint)
     }
 
     override fun onDetachedFromWindow() {

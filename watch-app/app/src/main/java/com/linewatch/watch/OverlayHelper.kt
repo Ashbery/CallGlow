@@ -36,7 +36,7 @@ object OverlayHelper {
 
     enum class Mode { CALL, MISSED, DISCONNECTED }
 
-    private const val AUTO_DISMISS_MS = 8_000L
+    private const val AUTO_DISMISS_MS = 8_000L   // D15：未接/斷線 overlay 螢幕持續亮時 8s 自動消失（右滑可提前）
     private const val COLOR_LINE_GREEN = 0xFF06C755.toInt()
     private const val COLOR_ALERT = 0xFFFF8A65.toInt()
     private const val COLOR_TEXT_PRIMARY = 0xFFFFFFFF.toInt()
@@ -125,6 +125,7 @@ object OverlayHelper {
         dismissRunnable?.let { handler.removeCallbacks(it) }
         dismissRunnable = null
         if (mode == Mode.MISSED || mode == Mode.DISCONNECTED) {
+            // D15：螢幕持續亮 → 8s 自動消失；息屏由服務 dismiss
             val r = Runnable { dismiss() }
             dismissRunnable = r
             handler.postDelayed(r, AUTO_DISMISS_MS)
@@ -441,7 +442,7 @@ object OverlayHelper {
             maxLines = 1
             gravity = Gravity.CENTER
             includeFontPadding = false
-            setAutoSizeTextTypeUniformWithConfiguration(12, 40, 1, TypedValue.COMPLEX_UNIT_SP)
+            setAutoSizeTextTypeUniformWithConfiguration(12, 34, 1, TypedValue.COMPLEX_UNIT_SP)
         }
         val namePad = (context.resources.displayMetrics.widthPixels * 0.15f).toInt()
         nameView.setPadding(namePad, 0, namePad, 0)
@@ -450,6 +451,7 @@ object OverlayHelper {
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = dp(10) })
         overlayName = nameView
+        // D16：Yomogi 手寫字體（首字/標題/名字；副標在下方聲明後套用）
 
         val sub = TextView(context).apply {
             text = subText
@@ -462,6 +464,7 @@ object OverlayHelper {
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply { topMargin = dp(8) })
         overlaySub = sub
+        Fonts.applyYomogi(context, avatar, title, nameView, sub)
     }
 
     /** 名字首字（處理 emoji 代理對；空白 → 「?」）。 */

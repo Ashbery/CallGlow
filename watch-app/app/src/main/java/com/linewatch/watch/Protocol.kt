@@ -40,8 +40,13 @@ object Protocol {
 
     // 計時（與 docs/protocol.md / decisions.md 一致）
     const val CALL_TIMEOUT_MS = 120_000L   // 手錶端看門狗：120s
-    const val MISSED_AUTO_FINISH_MS = 8_000L
+    const val MISSED_AUTO_FINISH_MS = 8_000L   // 未接/斷線：螢幕未熄時 8s 自動關（右滑可提前關）
     const val MAX_NAME_BYTES = 60
+
+    // D15（2026-08-17 使用者裁決）：未接/斷線畫面不自動關閉，改右滑關閉；
+    // 來電震動於息屏後重掛（ColorOS 息屏會取消第三方震動），直到接通/掛斷
+    const val ACTION_HIDE_UI = "com.linewatch.watch.action.HIDE_UI"   // Service → Activity：隱藏來電畫面（不結束通話）
+    const val VIBRATION_REARM_MS = 5_000L                             // 息屏期間震動重掛週期
 
     // 未接震動節奏（docs/decisions.md D4 固定，不隨設定變動）
     // 來電節奏三檔與震動強度改由 Prefs 即時讀取（ui-spec V2-1 SettingsActivity）

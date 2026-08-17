@@ -30,7 +30,8 @@
 ### IncomingCallActivity 未接狀態（同 Activity 切換）
 - 標題「LINE 未接來電」（警示色 #FF8A65）
 - 名字同規格；副標「對方可能已掛斷」12sp 灰
-- 8 秒後自動 finish；來電中轉未接不重啟震動
+- D15：看過一次原則——息屏即隱藏、抬腕不重顯；螢幕持續亮 → 8s 自動 finish 或右滑提前關；
+  清除 KEEP_SCREEN_ON 允許自然息屏；來電中轉未接不重啟震動
 
 ### IncomingCallActivity 視覺強化（v2，docs/roadmap.md V2-2/V2-3/V2-4-v1；2026-08-17）
 - 頭像（V2-4-v1）：名字首字圓形頭像（LINE 綠底 #06C755＋白字 28sp 粗體，64dp），置於標題上方；
@@ -147,7 +148,7 @@
 ### IncomingCallActivity 視覺 v3.10（T9 下滑關閉手勢；2026-08-17）
 - 來電態（Activity）：下滑（down→up dy≥80px 且 |dx|<dy×0.5）→ 等同 watch 端 endCall(false)：
   停震＋關畫面；**不送 BLE 指令**（手機端來電不受影響）。
-- 未接/斷線態（Activity）：下滑 → 立即 finish（取消 8s 自動關計時）。
+- 未接/斷線態（Activity/overlay）：右滑 → 立即 finish；螢幕持續亮時 8s 自動 finish（D15）。
 - Overlay 路徑：root onTouchListener 下滑 → OverlayHelper.dismiss()＋dismissListener 回呼 →
   service endCall(false) 停震（service onCreate 註冊、onDestroy 清除）。
 - logcat：{"t":"swipe_dismiss","src":"activity|overlay"}。

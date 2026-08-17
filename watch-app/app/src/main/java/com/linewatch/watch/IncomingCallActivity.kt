@@ -90,6 +90,12 @@ class IncomingCallActivity : Activity() {
 
     private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == Protocol.ACTION_HIDE_UI) {
+                // D15：息屏後隱藏來電畫面（不結束通話；震動由 service 繼續負責，直到接通/掛斷）
+                Protocol.logEvent("{\"t\":\"hide_ui\",\"src\":\"screen_off\"}")
+                finish()
+                return
+            }
             if (intent.action == Protocol.ACTION_AVATAR) {
                 // T8：頭像到達 → 來電中才重新渲染
                 if (uiState == Protocol.STATE_CALL) renderAvatar()
@@ -121,6 +127,16 @@ class IncomingCallActivity : Activity() {
         bindViews()
         configureNameAutosize()
         setupSwipeDismiss()
+        // D15：receiver 註冊於 onCreate（息屏時 onStop 先跑 → 舊寫法收不到 HIDE_UI）
+        val filter = IntentFilter(Protocol.ACTION_STATE)
+        filter.addAction(Protocol.ACTION_AVATAR)
+        filter.addAction(Protocol.ACTION_HIDE_UI)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(stateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(stateReceiver, filter)
+        }
         handleIntent(intent)
     }
 
@@ -135,28 +151,20 @@ class IncomingCallActivity : Activity() {
         isVisible = true
         // Activity 可見 → overlay 備援不再需要（BAL 受限時 overlay 先顯示，亮屏後由此交還 Activity）
         OverlayHelper.dismiss()
-        val filter = IntentFilter(Protocol.ACTION_STATE)
-        filter.addAction(Protocol.ACTION_AVATAR)
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(stateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("DEPRECATION")
-            registerReceiver(stateReceiver, filter)
-        }
     }
 
     override fun onStop() {
         super.onStop()
         isVisible = false
-        try {
-            unregisterReceiver(stateReceiver)
-        } catch (_: IllegalArgumentException) {
-        }
     }
 
     override fun onDestroy() {
         handler.removeCallbacks(finishRunnable)
         cancelRingPulse()
+        try {
+            unregisterReceiver(stateReceiver)
+        } catch (_: IllegalArgumentException) {
+        }
         super.onDestroy()
     }
 
@@ -172,6 +180,8 @@ class IncomingCallActivity : Activity() {
         titleView = findViewById(R.id.title)
         nameView = findViewById(R.id.name)
         subtitleView = findViewById(R.id.subtitle)
+        // D16：所有通知文字統一 Yomogi 手寫字體（標題/名字/副標/首字頭像）
+        Fonts.applyYomogi(this, avatarView, titleView, nameView, subtitleView)
     }
 
     /** 名字 40sp、自動縮放至螢幕寬 70% 內（docs/ui-spec.md 圓形螢幕注意）。
@@ -180,7 +190,7 @@ class IncomingCallActivity : Activity() {
     private fun configureNameAutosize() {
         val pad = (resources.displayMetrics.widthPixels * 0.15f).toInt()
         nameView.setPadding(pad, 0, pad, 0)
-        nameView.setAutoSizeTextTypeUniformWithConfiguration(12, 40, 1, TypedValue.COMPLEX_UNIT_SP)
+        nameView.setAutoSizeTextTypeUniformWithConfiguration(12, 34, 1, TypedValue.COMPLEX_UNIT_SP)
     }
 
     private fun handleIntent(intent: Intent?) {
@@ -229,6 +239,8 @@ class IncomingCallActivity : Activity() {
 
     private fun showCall() {
         uiState = Protocol.STATE_CALL
+        // D15：call 態恢復亮屏保持（missed/disconnected 已清除）
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         handler.removeCallbacks(finishRunnable)
         // 特效層恢復可見（自 DISCONNECTED 轉回）
         ringOuterView.visibility = View.VISIBLE
@@ -261,7 +273,8 @@ class IncomingCallActivity : Activity() {
         nameView.setTextColor(getColor(R.color.text_primary))
         subtitleView.setText(R.string.subtitle_missed)
         subtitleView.setTextColor(getColor(R.color.text_secondary))
-        // 8 秒後自動關閉（docs/decisions.md D2）
+        // D15：螢幕持續亮 → 8s 自動關（右滑可提前關）；息屏 → 服務發 HIDE_UI 結束、抬腕不再顯示
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         handler.postDelayed(finishRunnable, Protocol.MISSED_AUTO_FINISH_MS)
         stopRingPulse(staticAlpha = true)
         playEntrance()
@@ -276,6 +289,8 @@ class IncomingCallActivity : Activity() {
         nameView.text = ""
         subtitleView.setText(R.string.subtitle_disconnected)
         subtitleView.setTextColor(getColor(R.color.text_secondary))
+        // D15：螢幕持續亮 → 8s 自動關（右滑可提前關）；息屏 → HIDE_UI
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         handler.postDelayed(finishRunnable, Protocol.MISSED_AUTO_FINISH_MS)
         stopRingPulse(staticAlpha = true)
         // v3.5：斷線態完全關閉來電特效（無動畫、無靜態殘留），只顯示圖示＋標題＋副標

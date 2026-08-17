@@ -112,6 +112,29 @@ class VibratorController(private val context: Context) {
     /** 是否正在來電循環震動（供斷線時判斷走 watchdog 或斷線提示）。 */
     fun isCalling(): Boolean = mode == Mode.CALLING
 
+    /**
+     * D15：重掛來電震動（ColorOS 息屏會取消第三方 App 的 haptic → 服務偵測息屏/亮屏後重掛）。
+     * 自訂節奏：重發同一波形（循環重來）；系統效果：700ms 重發循環本就會自動續發 → 不動作。
+     */
+    fun rearmCall() {
+        synchronized(lock) {
+            if (mode != Mode.CALLING) return
+            if (!vibrator.hasVibrator()) return
+            val useSystem = Prefs.getUseSystemEffect(context)
+            val vibMode = Prefs.getVibMode(context)
+            if (!useSystem || vibMode.isEmpty()) {
+                val strength = Prefs.getStrength(context)
+                val pattern = Prefs.callPatternFor(Prefs.getPatternKey(context))
+                try {
+                    vibrator.vibrate(
+                        VibrationEffect.createWaveform(pattern, Prefs.amplitudeWave(pattern, strength), 0)
+                    )
+                } catch (e: Exception) {
+                }
+            }
+        }
+    }
+
     /** v3.17：單次預覽震動（系統效果一次／自訂 600ms 依強度）；CALLING 中跳過。 */
     fun previewOnce(): Boolean {
         synchronized(lock) {

@@ -68,3 +68,28 @@ SettingsProvider 而定（有時要求 WRITE_SECURE_SETTINGS 而拒）→ 以 ad
 ## D14 不做「手機端斷線來電強提醒」兜底 — 2026-08-17（使用者裁決）
 使用者明確表示不需要（「這兩個都不用」）→ 不實作手機端 BLE 斷線時的強震＋響鈴兜底。
 若日後需要再開票。
+
+## D15 通知畫面右滑關閉＋抬腕只顯示一次＋震動持續到接通/掛斷 — 2026-08-17（使用者裁決）
+實測回饋三點：
+1. 未接/斷線畫面原本 8s 自動關 → 改**不自動關閉**，由使用者**右滑關閉**（Activity 與 overlay 皆已有右滑手勢）；
+   兩態清除 FLAG_KEEP_SCREEN_ON，允許手錶自然息屏。
+2. 抬腕顯示只一次：CALLING 中螢幕息屏 → 發 ACTION_HIDE_UI 結束來電畫面（**不結束通話**），
+   之後再抬腕不再重顯示（callUiHiddenByScreenOff 旗標，新通來電重置）。
+3. 震動持續到接通/掛斷：ColorOS 息屏會取消第三方 haptic → SCREEN_OFF 立即重掛＋5s 週期重掛
+   （VibratorController.rearmCall；自訂節奏重發同一波形，系統效果模式本有 700ms 循環自動續發）；
+   SCREEN_ON 亦重掛一次。
+
+### D15 修正（使用者第二次回饋，同日）
+1. 未接/斷線畫面：**不是**一直顯示——「看過一次」原則：息屏即隱藏（HIDE_UI）、再抬腕不重顯示；
+   若螢幕持續亮著未熄 → **8s 自動關閉**或右滑提前關（兩者皆保留）。
+   未接畫面**不顯示**「右滑關閉」提示文字。
+2. 來電中（未接通）邏輯維持 D15 原版（息屏隱藏畫面＋震動重掛），使用者確認正確。
+3. 實作修正：SCREEN_OFF 廣播到達時 Activity.onStop 已先把 isVisible 清掉 → 服務端不再檢查
+   isVisible（displayState 非空即發 HIDE_UI）；Activity 的 stateReceiver 改在 onCreate 註冊、
+   onDestroy 解除（舊寫法 onStop 解除 → 息屏時收不到 HIDE_UI）。
+
+## D16 通知字體 Yomogi＋名字縮小 — 2026-08-17（使用者裁決）
+所有通知文字（來電/未接/斷線的標題、名字、副標、首字頭像）統一 **Yomogi** 手寫感日系字體
+（google/fonts，SIL OFL 1.1；res/font/yomogi_regular.ttf，授權檔 watch-app/LICENSE-Yomogi.txt；
+Fonts 物件以 resources.getFont 載入，API 26+ 原生，無 androidx 依賴）。
+名字最大字號 40sp → **34sp**（Activity 與 overlay 同步）。

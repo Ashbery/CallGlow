@@ -442,7 +442,7 @@ object OverlayHelper {
             maxLines = 1
             gravity = Gravity.CENTER
             includeFontPadding = false
-            setAutoSizeTextTypeUniformWithConfiguration(12, 34, 1, TypedValue.COMPLEX_UNIT_SP)
+            setAutoSizeTextTypeUniformWithConfiguration(12, 28, 1, TypedValue.COMPLEX_UNIT_SP)
         }
         val namePad = (context.resources.displayMetrics.widthPixels * 0.15f).toInt()
         nameView.setPadding(namePad, 0, namePad, 0)

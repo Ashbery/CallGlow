@@ -56,12 +56,20 @@ echo.
 echo  [..] 正在偵測裝置（第 !TRY! 次）……
 set "PH="
 set "WT="
+set "PHM="
+set "WTM="
 for /f "tokens=1" %%d in ('call adb devices ^| findstr /r "device$"') do (
   for /f "delims=" %%m in ('call adb -s %%d shell getprop ro.product.model 2^>nul') do (
     echo     找到裝置 %%d = %%m
-    echo %%m | findstr /i "OWW261" >nul && set "WT=%%d"
+    echo %%m | findstr /i "OWW261" >nul
+    if errorlevel 1 (
+      set "PH=%%d"
+      set "PHM=%%m"
+    ) else (
+      set "WT=%%d"
+      set "WTM=%%m"
+    )
   )
-  if not defined WT set "PH=%%d"
 )
 if defined PH if defined WT goto CONFIRM
 echo.
@@ -92,8 +100,10 @@ exit /b 1
 echo.
 echo  ============================================================
 echo   偵測結果：
-echo     手機序號：!PH!
-echo     手錶序號：!WT!
+echo     手機：!PH!
+if defined PHM echo     手機型號：!PHM!
+echo     手錶：!WT!
+if defined WTM echo     手錶型號：!WTM!
 echo  ============================================================
 echo.
 choice /c YN /m "  正確嗎？[Y=繼續安裝，N=重新偵測]"
@@ -102,7 +112,9 @@ goto STARTINST
 
 :CHECKARGS
 call adb -s %PH% get-state 2>nul | findstr "device" >nul || (echo [錯誤] 手機 %PH% 未連上 & pause & exit /b 1)
+for /f "delims=" %%m in ('call adb -s %PH% shell getprop ro.product.model 2^>nul') do set "PHM=%%m"
 call adb -s %WT% get-state 2>nul | findstr "device" >nul || (echo [錯誤] 手錶 %WT% 未連上 & pause & exit /b 1)
+for /f "delims=" %%m in ('call adb -s %WT% shell getprop ro.product.model 2^>nul') do set "WTM=%%m"
 
 :STARTINST
 echo.

@@ -796,7 +796,8 @@ class BlePeripheralService : Service() {
     private fun endCall(missed: Boolean) {
         val wasCalling = callState == CallState.CALLING
         callState = CallState.IDLE
-        abortAvatarSession()             // 通話結束 → 中止未完成頭像 session
+        // v1.0.1b：不中止頭像 session——讓 av_end 收尾並寫快取（下一通同人秒顯）；
+        // 新 av_start／5s 逾時／BLE 斷線仍會清理半截 session。
         AvatarStore.clear()              // 清記憶體；未接/斷線畫面依名字查磁碟快取
         watchdog.cancel()
         vibratorController.stop()
@@ -831,7 +832,7 @@ class BlePeripheralService : Service() {
             endCall(missed = true)
         } else {
             callState = CallState.IDLE
-            abortAvatarSession()
+            // v1.0.1b：不中止頭像 session（見 endCall 註解）
             AvatarStore.clear()           // 清記憶體；未接畫面依名字查磁碟快取
             watchdog.cancel()
             updateNotification(getString(R.string.notification_waiting))

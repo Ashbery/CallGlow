@@ -179,7 +179,7 @@ public class LineCallListenerService extends NotificationListenerService {
                         name = machine.getLastName();
                     }
                     Logs.i(TAG, "missed verdict window hit -> " + Command.missed(name, a.kind));
-                    BleCentralService.abortAvatar();
+                    // v1.0.1b：不中止頭像——未接畫面也能顯示真頭像（寫快取後由手錶端查）
                     BleCentralService.send(Command.missed(name, a.kind));
                 } else {
                     Logs.d(TAG, "missed while idle outside window, ignored: title=" + title + " text=" + text);
@@ -258,7 +258,8 @@ public class LineCallListenerService extends NotificationListenerService {
     private void sendEnd(boolean missed) {
         main.removeCallbacks(watchdog);
         main.removeCallbacks(verdictExpiry);
-        BleCentralService.abortAvatar(); // 通話結束 → 中止頭像傳輸
+        // v1.0.1b：不再中止頭像傳輸——讓它自然完成並寫入手錶快取（下一通同人秒顯）；
+        // 新 av_start 會取代舊 session，5s 逾時與斷線仍會清理半截傳輸。
         BleCentralService.send(Command.end(missed));
     }
 

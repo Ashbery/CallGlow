@@ -124,3 +124,6 @@ autosize 12–28sp 自動縮放至屏寬 70% 內，min 12sp 可容納約 20 字�
    格式不變（files/avatars/<sha16(name)>.jpg＋JSON 索引），既有快取相容；同名字覆寫同一格。
 3. 日誌改執行期開關（Log.isLoggable）：adb shell setprop log.tag.LineWatchWatch V ／
    log.tag.LineWatchPhone V 即啟用，免重裝；預設仍全關（隱私不變）。
+4. （v1.0.1b）接聽／掛斷／未接**不再中止頭像傳輸**（手機端 sendEnd／missed 補送、手錶端
+   endCall／IDLE-missed 皆移除 abort）→ 快速接聽時頭像仍自然完成並寫入快取，下一通同人秒顯；
+   新 av_start／5s 逾時／BLE 斷線仍負責清理半截 session。

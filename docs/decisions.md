@@ -112,3 +112,15 @@ autosize 12–28sp 自動縮放至屏寬 70% 內，min 12sp 可容納約 20 字�
 - 配色 palette 新增 colors.xml（galaxy_* 五色）；LINE 綠僅留副標點綴。
 - 長名字（12sp 仍超 70% 寬）→ 固定 16sp＋marquee 橫向滾動（Activity/overlay）。
 - 僅 CALLING 套用；MISSED 橙、DISCONNECTED 灰不變。
+
+## D18 正式版日誌策略 — 2026-08-18（補登）
+正式版關閉常態日誌（LOG_ENABLED=false，Log.w/Log.e 不受控）。
+
+## D19 頭像傳輸健壯性＋快取容量制 — 2026-08-18（使用者實測回饋：第 3~4 位來電者頭貼偶發未到手錶）
+1. 根因：頭像 session 在 BLE 未就緒時被直接丟棄（start 指令有 onBleReady 補送，頭像沒有）
+   → 手錶整通只顯示首字。修復：未就緒改為 500ms 輪詢等就緒（上限 15s）再自動重送；
+   av_fail 重試一次維持不變；finishAvatarSession 一併取消輪詢。
+2. 快取上限由「≤10 個名字」改為「容量制 ≤1MB（每張 ≤12KB，≈80+ 人）＋索引 ≤256 筆安全上限」；
+   格式不變（files/avatars/<sha16(name)>.jpg＋JSON 索引），既有快取相容；同名字覆寫同一格。
+3. 日誌改執行期開關（Log.isLoggable）：adb shell setprop log.tag.LineWatchWatch V ／
+   log.tag.LineWatchPhone V 即啟用，免重裝；預設仍全關（隱私不變）。

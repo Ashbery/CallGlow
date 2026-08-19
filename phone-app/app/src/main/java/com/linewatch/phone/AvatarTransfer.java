@@ -18,6 +18,8 @@ public final class AvatarTransfer {
     public static final long TIMEOUT_MS = 5_000L;
     public static final long ACK_TIMEOUT_MS = 2_000L;
     public static final int RETRY_LIMIT = 1;
+    /** v1.0.1：BLE 未就緒時，頭像等就緒重送的上限時間（超過即放棄；來電前段重連通常 <3s）。 */
+    public static final long READY_WAIT_MS = 15_000L;
     /** chunk 送出節奏（NO_RESPONSE 排程間距；captain 配合調整 8ms→4ms 降低首次傳輸延遲）。 */
     public static final long CHUNK_PACE_MS = 4;
 

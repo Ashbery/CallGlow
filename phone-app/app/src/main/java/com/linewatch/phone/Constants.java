@@ -29,9 +29,6 @@ public final class Constants {
     /** 未接判定窗（protocol.md v1.1）：removed→end(false) 後武裝、一次有效、5 秒。 */
     public static final long MISSED_VERDICT_WINDOW_MS = 5_000L;
 
-    /** D18 正式版：關閉常態日誌（開發/除錯時改 true）。Log.w/Log.e 不受此開關控制。 */
-    public static final boolean LOG_ENABLED = false;
-
     /** 心跳：空閒時每 10s ping；連續 3 次無 pong → 重連。 */
     public static final long PING_INTERVAL_MS = 10_000L;
     public static final int PING_MISS_LIMIT = 3;

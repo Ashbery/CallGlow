@@ -486,6 +486,9 @@ public class BleCentralService extends Service {
 
     // ---------- 頭像傳輸（protocol v2 草案；worker thread） ----------
 
+    /** v1.0.1：BLE 未就緒時頭像等就緒重送的截止時間（elapsedRealtime）。 */
+    private long avatarReadyDeadline = 0L;
+
     private void startAvatarSession(byte[] jpeg) {
         if (stopping) return;
         finishAvatarSession(); // 取代舊 session
@@ -496,12 +499,21 @@ public class BleCentralService extends Service {
         avatarRetries = 0;
         avatarAwaitingAck = false;
         avatarTs = SystemClock.elapsedRealtime();
-        if (avatarTotal <= 0 || !ready) {
-            Log.w(TAG, "avatar session skipped (total=" + avatarTotal + " ready=" + ready + ")");
+        if (avatarTotal <= 0) {
+            Log.w(TAG, "avatar session skipped (total=" + avatarTotal + ")");
             finishAvatarSession();
             return;
         }
-        Logs.i(TAG, "avatar session start: ts=" + avatarTs + " total=" + avatarTotal + " bytes=" + jpeg.length);
+        if (!ready || gatt == null || charCmd == null) {
+            // v1.0.1 修復：不再丟棄——等 BLE 就緒後自動重送（onBleReady 只補送 start，頭像需自理）
+            avatarReadyDeadline = SystemClock.elapsedRealtime() + AvatarTransfer.READY_WAIT_MS;
+            Logs.i(TAG, "avatar waits for BLE ready (deadline +" + AvatarTransfer.READY_WAIT_MS
+                    + "ms, sha=" + avatarSha + ")");
+            worker.postDelayed(avatarReadyRetry, 500);
+            return;
+        }
+        Logs.i(TAG, "avatar session start: ts=" + avatarTs + " total=" + avatarTotal
+                + " bytes=" + jpeg.length + " sha=" + avatarSha);
         // av_start 進串列化佇列（排在進行中的 start/ping 之後）；false 由 writePump 重試，不再是立即失敗
         avatarQueue.add(new WriteItem(AvatarTransfer.buildStart(avatarTotal, jpeg.length, avatarTs), true));
         worker.post(writePump);
@@ -522,6 +534,7 @@ public class BleCentralService extends Service {
         avatarAwaitingAck = false;
         worker.removeCallbacks(avatarTimeout);
         worker.removeCallbacks(avatarAckTimeout);
+        worker.removeCallbacks(avatarReadyRetry); // v1.0.1：等待就緒的輪詢一併取消
         avatarQueue.clear(); // 未送出的 av_* 全部丟棄（中止語義）
     }
 
@@ -541,6 +554,23 @@ public class BleCentralService extends Service {
             avatarQueue.add(new WriteItem(AvatarTransfer.buildEnd(avatarSha, avatarTs), true));
             avatarIdx = avatarTotal;
             worker.post(writePump);
+        }
+    };
+
+    /** v1.0.1：BLE 未就緒時 500ms 輪詢；就緒 → 重啟 session，逾時 → 放棄。 */
+    private final Runnable avatarReadyRetry = new Runnable() {
+        @Override
+        public void run() {
+            if (avatarJpeg == null || stopping) return;
+            if (ready && gatt != null && charCmd != null) {
+                Logs.i(TAG, "avatar BLE ready -> start transfer");
+                startAvatarSession(avatarJpeg);
+            } else if (SystemClock.elapsedRealtime() < avatarReadyDeadline) {
+                worker.postDelayed(this, 500);
+            } else {
+                Log.w(TAG, "avatar gave up waiting for BLE ready");
+                finishAvatarSession();
+            }
         }
     };
 

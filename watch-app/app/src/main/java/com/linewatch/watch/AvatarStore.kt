@@ -19,7 +19,8 @@ import java.security.MessageDigest
  * v2/T8 真實頭像快取（protocol.md v2 頭像傳輸、ui-spec v3 頭像快取規則）：
  * - 記憶體：目前通話已確認顯示的頭像（bitmap）
  * - 磁碟：files/avatars/<SHA-256(name) 前 16 hex>.jpg＋SharedPreferences JSON 索引（name→file/ts）
- * - 上限 ≤10 名字、每張 ≤12KB、LRU 淘汰；CALLING 進入先查快取秒顯；未接/斷線依名字查快取
+ * - 上限（v1.0.1 容量制）：總容量 ≤1MB（每張 ≤12KB，≈80+ 人）、索引 ≤256 筆安全上限；LRU 淘汰；
+ *   CALLING 進入先查快取秒顯；未接/斷線依名字查快取
  * - 純 AOSP：BitmapShader 圓形裁切
  */
 object AvatarStore {
@@ -27,7 +28,8 @@ object AvatarStore {
     private const val CACHE_DIR = "avatars"
     private const val INDEX_PREFS = "avatar_index"
     private const val INDEX_KEY = "index"
-    private const val MAX_ENTRIES = 10
+    private const val MAX_TOTAL_BYTES = 1_048_576L   // v1.0.1：容量上限 1MB（≈80+ 人），取代人數上限
+    private const val MAX_ENTRIES = 256              // 索引安全上限（防索引無限增長）
     private const val MAX_FILE_BYTES = 12_000L
 
     private var appContext: Context? = null
@@ -109,24 +111,39 @@ object AvatarStore {
         )
     }
 
-    /** LRU：超過上限時刪除最久未用。 */
+    /** 容量型 LRU：總位元組超標或索引超量 → 刪除最久未用直到合規（同名字覆寫＝刷新時間，不佔新格）。 */
     private fun evictIfNeeded() {
-        while (indexJson.length() > MAX_ENTRIES) {
-            var oldest: String? = null
-            var oldestTs = Long.MAX_VALUE
-            val keys = indexJson.keys()
-            while (keys.hasNext()) {
-                val k = keys.next()
-                val ts = indexJson.optJSONObject(k)?.optLong("ts", 0L) ?: 0L
-                if (ts < oldestTs) {
-                    oldestTs = ts
-                    oldest = k
-                }
-            }
-            val victim = oldest ?: break
+        while (indexJson.length() > MAX_ENTRIES || totalBytes() > MAX_TOTAL_BYTES) {
+            val victim = oldestKey() ?: break
             indexJson.remove(victim)
             cacheFile(victim)?.delete()
         }
+    }
+
+    private fun oldestKey(): String? {
+        var oldest: String? = null
+        var oldestTs = Long.MAX_VALUE
+        val keys = indexJson.keys()
+        while (keys.hasNext()) {
+            val k = keys.next()
+            val ts = indexJson.optJSONObject(k)?.optLong("ts", 0L) ?: 0L
+            if (ts < oldestTs) {
+                oldestTs = ts
+                oldest = k
+            }
+        }
+        return oldest
+    }
+
+    /** 索引內所有快取檔的總位元組（檔不存在視為 0）。 */
+    private fun totalBytes(): Long {
+        var total = 0L
+        val keys = indexJson.keys()
+        while (keys.hasNext()) {
+            val f = cacheFile(keys.next()) ?: continue
+            if (f.exists()) total += f.length()
+        }
+        return total
     }
 
     private fun persistIndex() {

@@ -119,7 +119,7 @@ APK 輸出：`phone-app\app\build\outputs\apk\debug\app-debug.apk`、
 
 ### 執行
 
-1. 到 [Releases](https://github.com/Ashbery/CallGlow/releases) 下載 **CallGlow-v1.0.0-installer.zip** 並解壓縮
+1. 到 [Releases](https://github.com/Ashbery/CallGlow/releases) 下載 **CallGlow-v1.0.1-installer.zip** 並解壓縮
 2. 手機＋手錶用 USB 線接上電腦，裝置跳出「允許 USB 偵錯」→ 勾選一律允許
 3. 雙擊 **install.bat**，跟著畫面的引導走完（自動完成 5 件事）：
 
@@ -135,7 +135,7 @@ APK 輸出：`phone-app\app\build\outputs\apk\debug\app-debug.apk`、
 
 ## 直接安裝 APK
 
-從 [Releases](https://github.com/Ashbery/CallGlow/releases) 下載 **CallGlow-v1.0.0-installer.zip**，
+從 [Releases](https://github.com/Ashbery/CallGlow/releases) 下載 **CallGlow-v1.0.1-installer.zip**，
 解壓縮後含手機/手錶兩支 APK 與一鍵安裝腳本（install.bat）。
 手機 APK 可直接點擊安裝；手錶 APK 需 adb 安裝（見下方「安裝（adb）」章節的一次性設定，含 ColorOS 白名單——**必做**）。
 

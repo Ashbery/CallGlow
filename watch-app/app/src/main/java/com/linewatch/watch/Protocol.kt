@@ -13,22 +13,26 @@ object Protocol {
     // tag 固定 LineWatchWatch；關鍵事件（start/end/ping/pong/連線/斷線/看門狗）輸出完整 JSON
     const val LOG_TAG = "LineWatchWatch"
 
-    /** D18 正式版：關閉常態日誌（開發/除錯時改 true）。Log.w/Log.e 不受此開關控制。 */
-    const val LOG_ENABLED = false
+/**
+     * D18 正式版：日誌預設關閉。
+     * D19（v1.0.1）：改執行期開關——adb shell setprop log.tag.LineWatchWatch V 即啟用（免重裝）；
+     * 預設（user build）DEBUG 不可見，隱私行為不變。Log.w/Log.e 不受此開關控制。
+     */
+    private val logsVisible: Boolean get() = Log.isLoggable(LOG_TAG, Log.DEBUG)
 
     /** 關鍵事件 log：單行完整 JSON。測試驗收全靠 logcat，勿改 tag。 */
     fun logEvent(message: String) {
-        if (LOG_ENABLED) Log.i(LOG_TAG, message)
+        if (logsVisible) Log.i(LOG_TAG, message)
     }
 
-    /** 常態資訊日誌（受 LOG_ENABLED 控制）。 */
+    /** 常態資訊日誌（執行期開關）。 */
     fun logI(message: String) {
-        if (LOG_ENABLED) Log.i(LOG_TAG, message)
+        if (logsVisible) Log.i(LOG_TAG, message)
     }
 
-    /** 常態除錯日誌（受 LOG_ENABLED 控制）。 */
+    /** 常態除錯日誌（執行期開關）。 */
     fun logD(message: String) {
-        if (LOG_ENABLED) Log.d(LOG_TAG, message)
+        if (logsVisible) Log.d(LOG_TAG, message)
     }
 
     // GATT（Nordic UART Service）

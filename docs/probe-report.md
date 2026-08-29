@@ -121,7 +121,7 @@ findstr /i "rfcomm spp" bt_<裝置>.txt
 
 結果（2026-08-17 完整回傳 ✅；完整 dump 存於 repo probe/bt_phone.txt、probe/bt_watch.txt）：
 - 手錶 ✅（D1 複驗通過）：Metadata profile 政策僅 A2DP／A2DP_SINK／HEADSET／HEADSET_CLIENT／HID_HOST／PAN／PBAP／PBAP_CLIENT／MAP／MAP_CLIENT／SAP／HEARING_AID，**無 RFCOMM/SPP** → BLE 定案再確認。GATT Server Map 顯示 com.heytap.accessory 已在跑 2 個 GATT Service（0xafaf、0xaa15）→ 手錶 BLE Peripheral（GattServer）路徑有實務運行先例。手錶名「OPP…15C」與 ui-spec 狀態列文字一致。手錶現以 HeadsetClient（HFP）與兩台手機連線（含本測試機）——經典藍牙與 BLE GATT 不同承載，並存不衝突。
-- 手機 ✅：「Enabled Profile Services:」明細：GATT、A2DP、AVRCP、AVRCP_CONTROLLER、BATTERY、HEADSET、HEARING_AID、HID_DEVICE、HID_HOST、MAP、OPP、PAN、PBAP、SAP → GATT（BLE Client）啟用 ✅。Bonded devices 已有 OPPO Watch X3 00B5 與 OPPO Watch X3（<裝置尾碼>） 兩筆（系統層已配對；本專案 GATT 直連不需額外配對）。SCAN_MODE_CONNECTABLE 正常。
+- 手機 ✅：「Enabled Profile Services:」明細：GATT、A2DP、AVRCP、AVRCP_CONTROLLER、BATTERY、HEADSET、HEARING_AID、HID_DEVICE、HID_HOST、MAP、OPP、PAN、PBAP、SAP → GATT（BLE Client）啟用 ✅。Bonded devices 已有 OPPO Watch X3（裝置尾碼）與 OPPO Watch X3（<裝置尾碼>） 兩筆（系統層已配對；本專案 GATT 直連不需額外配對）。SCAN_MODE_CONNECTABLE 正常。
 
 ### P4 oppo/heytap 系統套件（裝置：兩台；環境了解）
 指令：

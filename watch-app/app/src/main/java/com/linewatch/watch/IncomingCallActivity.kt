@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.TypedValue
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -39,6 +40,10 @@ class IncomingCallActivity : Activity() {
         const val EXTRA_DISCONNECTED = "disconnected"
         // ColorOS 擋 shell 廣播（DEBUG_END broadcast 被拒）→ 以深連結 extra 轉交 service endCall
         const val EXTRA_DEBUG_END = "debug_end"
+
+        /** v1.0.3k：左緣手勢區＋甩動速度門檻（同設定頁）。 */
+        const val EDGE_ZONE_PX = 110f
+        const val FLING_VELOCITY_PX_PER_MS = 1.2f
 
         /** Service 判斷 Activity 是否在前台（決定 broadcast 或 startActivity）。 */
         @Volatile
@@ -83,6 +88,13 @@ class IncomingCallActivity : Activity() {
     }
     private var uiState: String = Protocol.STATE_CALL
     private var avatarTint: Int = 0
+
+    // v1.0.3k：來電/未接畫面滑動關閉（左緣＋水平＋甩動，同設定頁規則）
+    private var dragStartRawX = 0f
+    private var dragStartRawY = 0f
+    private var dragging = false
+    private var edgeArmed = false
+    private var downEventTime = 0L
 
     // D17.10：副標柔光呼吸（文字恆定，只有 shadow 光暈隨節拍擴散/收縮）
     private var subGlowRadius = 0f
@@ -164,6 +176,7 @@ class IncomingCallActivity : Activity() {
         hideSystemBars()
         bindViews()
         configureNameAutosize()
+        setupSwipeDismiss()
         // D15：receiver 註冊於 onCreate（息屏時 onStop 先跑 → 舊寫法收不到 HIDE_UI）
         val filter = IntentFilter(Protocol.ACTION_STATE)
         filter.addAction(Protocol.ACTION_AVATAR)
@@ -529,10 +542,82 @@ class IncomingCallActivity : Activity() {
         super.onBackPressed()
     }
 
-    // ---------- v1.0.3g：滑動關閉全部移除 ----------
-    // 實測任何滑動偵測都有誤判（人手垂直漂移）→ 來電畫面不提供滑動關閉；
-    // 真實來電＝CALLING 中 onBackPressed 忽略（見上），未接/斷線＝8s 自動關或系統返回；
-    // 測試模式＝onBackPressed 允許關閉（見上）。
+    // ---------- v1.0.3k 來電/未接畫面滑動關閉（使用者要求恢復） ----------
+    // 規則同設定頁：左緣 110px 內起手 ＋ dx≥100 ＋ |dy|≤dx×0.4 ＋ 甩動速度 ≥1.2px/ms。
+    // CALLING＝本地停震關畫面（等同 endCall(false)，不送 BLE）；未接/斷線＝直接關閉。
+
+    private fun setupSwipeDismiss() {
+        val root = findViewById<View>(android.R.id.content)
+        root.setOnTouchListener { v, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    dragStartRawX = ev.rawX
+                    dragStartRawY = ev.rawY
+                    edgeArmed = ev.rawX <= EDGE_ZONE_PX
+                    dragging = true
+                    downEventTime = ev.eventTime
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (!dragging) return@setOnTouchListener true
+                    val rawDx = ev.rawX - dragStartRawX
+                    val dy = ev.rawY - dragStartRawY
+                    if (!edgeArmed || rawDx < 40f || kotlin.math.abs(dy) > rawDx) {
+                        return@setOnTouchListener true
+                    }
+                    val dx = rawDx.coerceAtLeast(0f)
+                    v.translationX = damp(dx)
+                    v.alpha = 1f - (dx.coerceAtMost(160f) / 160f) * 0.75f
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!dragging) return@setOnTouchListener true
+                    dragging = false
+                    val dx = ev.rawX - dragStartRawX
+                    val dy = ev.rawY - dragStartRawY
+                    val dur = ev.eventTime - downEventTime
+                    val velocity = if (dur > 0) dx / dur else 0f
+                    if (edgeArmed && dx >= 100f && kotlin.math.abs(dy) <= dx * 0.4f &&
+                        velocity >= FLING_VELOCITY_PX_PER_MS
+                    ) {
+                        Protocol.logEvent(
+                            "{\"t\":\"swipe_dismiss\",\"src\":\"activity\",\"dx\":${dx.toInt()},\"dy\":${dy.toInt()},\"startX\":${dragStartRawX.toInt()},\"vel\":${(velocity * 100).toInt()}}"
+                        )
+                        handleSwipeDismiss()
+                    } else {
+                        springBack(v)
+                    }
+                    true
+                }
+                else -> true
+            }
+        }
+    }
+
+    private fun damp(dy: Float): Float =
+        if (dy > 160f) 160f + (dy - 160f) * 0.6f else dy
+
+    private fun springBack(v: View) {
+        v.animate()
+            .translationX(0f)
+            .alpha(1f)
+            .setDuration(200L)
+            .setInterpolator(android.view.animation.DecelerateInterpolator())
+            .start()
+    }
+
+    private fun handleSwipeDismiss() {
+        handler.removeCallbacks(finishRunnable)   // 未接/斷線：取消 8s 自動關
+        if (uiState == Protocol.STATE_CALL) {
+            // 等同 watch 端 endCall(false)：本地停震＋關畫面；不送 BLE 指令，手機端來電不受影響
+            startService(
+                Intent(this, BlePeripheralService::class.java)
+                    .setAction(Protocol.ACTION_DEBUG_END)
+                    .putExtra("missed", false)
+            )
+        }
+        finish()
+    }
 
     private fun hideSystemBars() {
         // v1.0.3e：只隱藏狀態列；導覽列保留（系統 HeyTap 返回手勢需要手勢區）

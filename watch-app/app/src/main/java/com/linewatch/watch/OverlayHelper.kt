@@ -325,8 +325,8 @@ object OverlayHelper {
                     dragging = false
                     val dx = ev.rawX - dragStartRawX
                     val dy = ev.rawY - dragStartRawY
-                    // v1.0.3：嚴格橫向主導（|dy| ≤ dx×0.3）才關閉
-                    if (dx >= 80f && kotlin.math.abs(dy) <= dx * 0.3f) {
+                    // v1.0.3c：嚴格橫向主導（|dy| ≤ dx×0.25）才關閉
+                    if (dx >= 80f && kotlin.math.abs(dy) <= dx * 0.25f) {
                         Protocol.logEvent("{\"t\":\"swipe_dismiss\",\"src\":\"overlay\",\"dx\":${dx.toInt()},\"dy\":${dy.toInt()}}")
                         flyOutOverlayX()
                     } else {

@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
+import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.RadioButton
@@ -30,6 +31,9 @@ class SettingsActivity : Activity() {
     private lateinit var strengthGroup: RadioGroup
     private lateinit var patternGroup: RadioGroup
     private val vibratorController by lazy { VibratorController(applicationContext) }
+    private var dragStartRawX = 0f
+    private var dragStartRawY = 0f
+    private var dragging = false
 
     private val connReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -47,6 +51,7 @@ class SettingsActivity : Activity() {
         setupPatternGroup()
         setupPulsarGroup()
         setupButtons()
+        setupSwipeDismiss()
         refreshBtStatus()
     }
 
@@ -192,8 +197,62 @@ class SettingsActivity : Activity() {
         }
     }
 
-    // v1.0.3b：移除設定頁右滑關閉（ScrollView 滾動誤判為橫向關閉——實測 16:57:34 swipe_dismiss 即此誤觸）
-    // 返回改由系統返回鍵/手勢負責；來電畫面仍保留嚴格橫向判定
+    // ---------- v1.0.3c 右滑返回（嚴格橫向判定；往下滑/對角下滑不觸發，每次關閉記錄座標） ----------
+
+    private fun setupSwipeDismiss() {
+        val root = findViewById<View>(R.id.settings_scroll)
+        root.setOnTouchListener { v, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    dragStartRawX = ev.rawX
+                    dragStartRawY = ev.rawY
+                    dragging = false
+                    false   // 不攔截 DOWN：ScrollView 垂直滾動正常
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (!dragging) {
+                        val dx = ev.rawX - dragStartRawX
+                        val dy = ev.rawY - dragStartRawY
+                        // 只有「明顯水平向右」才開始攔截（dx≥40 且 |dy|≤dx）
+                        if (dx >= 40f && kotlin.math.abs(dy) <= dx) {
+                            dragging = true
+                            v.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                        } else {
+                            return@setOnTouchListener false
+                        }
+                    }
+                    val dx = (ev.rawX - dragStartRawX).coerceAtLeast(0f)
+                    v.translationX = dampDrag(dx)
+                    v.alpha = 1f - (dx.coerceAtMost(160f) / 160f) * 0.75f
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!dragging) return@setOnTouchListener false
+                    dragging = false
+                    val dx = ev.rawX - dragStartRawX
+                    val dy = ev.rawY - dragStartRawY
+                    // v1.0.3c：嚴格橫向（|dy| ≤ dx×0.25）才返回；往下滑/對角下滑不觸發
+                    if (dx >= 100f && kotlin.math.abs(dy) <= dx * 0.25f) {
+                        Protocol.logEvent("{\"t\":\"swipe_dismiss\",\"src\":\"settings\",\"dx\":${dx.toInt()},\"dy\":${dy.toInt()}}")
+                        finish()
+                    } else {
+                        v.animate()
+                            .translationX(0f)
+                            .alpha(1f)
+                            .setDuration(200L)
+                            .setInterpolator(android.view.animation.DecelerateInterpolator())
+                            .withEndAction { v.setLayerType(View.LAYER_TYPE_NONE, null) }
+                            .start()
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun dampDrag(dx: Float): Float =
+        if (dx > 160f) 160f + (dx - 160f) * 0.6f else dx
 
     private fun refreshBtStatus() {
         if (BlePeripheralService.bleConnected) {

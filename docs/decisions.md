@@ -153,5 +153,7 @@ autosize 12–28sp 自動縮放至屏寬 70% 內，min 12sp 可容納約 20 字�
    「無法觸發」＝手錶馬達對短（<250ms）或低振幅（峰值<150/255）幾乎無感 → catPaw/dewdrop/chime/clamor
    換為 warDrum/tickTock/woodpecker/hammer（實測送達波形對照表）。
 6. （v1.0.3b）設定頁右滑關閉整個移除——16:57:34 實測 swipe_dismiss src=settings 證明 ScrollView
-   滾動會誤觸（移除後 ScrollView 純滾動）；來電畫面保留嚴格橫向判定並新增「CALLING 中忽略系統返回」
-   （onBackPressed 覆寫），返回鍵/手勢不再能關掉來電畫面。
+   滾動會誤觸；來電畫面保留嚴格橫向判定並新增「CALLING 中忽略系統返回」（onBackPressed 覆寫）。
+7. （v1.0.3c 使用者回饋）系統右滑返回在此錶不可用 → **恢復設定頁右滑返回**，但以嚴格橫向判定
+   （跟手 dx≥40 且 |dy|≤dx；關閉 dx≥100 且 |dy|≤dx×0.25）＋關閉事件記錄 dx/dy；來電畫面門檻同步
+   0.3→0.25。若仍誤觸，log 的 dx/dy 可直接定位真實軌跡。

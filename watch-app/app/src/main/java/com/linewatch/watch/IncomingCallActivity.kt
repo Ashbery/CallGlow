@@ -87,6 +87,8 @@ class IncomingCallActivity : Activity() {
     private var dragStartRawX = 0f
     private var dragStartRawY = 0f
     private var dragging = false
+    private var lastDismissDx = 0
+    private var lastDismissDy = 0
 
     // D17.10：副標柔光呼吸（文字恆定，只有 shadow 光暈隨節拍擴散/收縮）
     private var subGlowRadius = 0f
@@ -517,6 +519,19 @@ class IncomingCallActivity : Activity() {
         subtitleView.animate().alpha(1f).setDuration(300L).start()
     }
 
+    /**
+     * v1.0.3b：系統返回（手勢/按鍵）在 CALLING 中忽略——避免 ColorOS Watch 的返回手勢
+     * 誤關來電畫面；未接/斷線畫面維持正常返回。
+     */
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (uiState == Protocol.STATE_CALL) {
+            Protocol.logEvent("{\"t\":\"back_ignored\",\"state\":\"call\"}")
+            return
+        }
+        super.onBackPressed()
+    }
+
     // ---------- v3.11 下滑拖動視窗 ----------
 
     /** 拖動視窗：MOVE 跟手（translationY＋alpha 漸降）；UP ≥80px 飛出、否則彈回。 */
@@ -561,6 +576,8 @@ class IncomingCallActivity : Activity() {
                     val dy = ev.rawY - dragStartRawY
                     // v1.0.3：嚴格橫向主導（|dy| ≤ dx×0.3）才關閉——下弧線滑動不再誤觸
                     if (dx >= 80f && kotlin.math.abs(dy) <= dx * 0.3f) {
+                        lastDismissDx = dx.toInt()
+                        lastDismissDy = dy.toInt()
                         // v3.12：直接 finish()，不加自訂飛出 → 系統右滑關閉過場自然接續
                         handleSwipeDismiss()
                     } else {
@@ -597,7 +614,7 @@ class IncomingCallActivity : Activity() {
     }
 
     private fun handleSwipeDismiss() {
-        Protocol.logEvent("{\"t\":\"swipe_dismiss\",\"src\":\"activity\"}")
+        Protocol.logEvent("{\"t\":\"swipe_dismiss\",\"src\":\"activity\",\"dx\":$lastDismissDx,\"dy\":$lastDismissDy}")
         handler.removeCallbacks(finishRunnable)   // 未接/斷線：取消 8s 自動關
         if (uiState == Protocol.STATE_CALL) {
             // 等同 watch 端 endCall(false)：本地停震＋關畫面；不送 BLE 指令，手機端來電不受影響

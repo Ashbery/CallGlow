@@ -29,7 +29,6 @@ class SettingsActivity : Activity() {
     private lateinit var btStatusView: TextView
     private lateinit var btNameView: TextView
     private lateinit var strengthGroup: RadioGroup
-    private lateinit var patternGroup: RadioGroup
     private val vibratorController by lazy { VibratorController(applicationContext) }
     private var dragStartRawX = 0f
     private var dragStartRawY = 0f
@@ -48,7 +47,6 @@ class SettingsActivity : Activity() {
         setContentView(R.layout.settings_activity)
         bindViews()
         setupStrengthGroup()
-        setupPatternGroup()
         setupPulsarGroup()
         setupButtons()
         setupSwipeDismiss()
@@ -80,7 +78,6 @@ class SettingsActivity : Activity() {
         btStatusView = findViewById(R.id.bt_status)
         btNameView = findViewById(R.id.bt_name)
         strengthGroup = findViewById(R.id.strength_group)
-        patternGroup = findViewById(R.id.pattern_group)
     }
 
     private fun setupStrengthGroup() {
@@ -106,44 +103,16 @@ class SettingsActivity : Activity() {
         }
     }
 
-    private fun setupPatternGroup() {
-        val rapid = findViewById<RadioButton>(R.id.pattern_rapid)
-        val medium = findViewById<RadioButton>(R.id.pattern_medium)
-        val long = findViewById<RadioButton>(R.id.pattern_long)
-        when (Prefs.getPatternKey(this)) {
-            Prefs.PATTERN_RAPID -> rapid.isChecked = true
-            Prefs.PATTERN_LONG -> long.isChecked = true
-            else -> medium.isChecked = true
-        }
-        patternGroup.setOnCheckedChangeListener { _, checkedId ->
-            val key = when (checkedId) {
-                R.id.pattern_rapid -> Prefs.PATTERN_RAPID
-                R.id.pattern_long -> Prefs.PATTERN_LONG
-                else -> Prefs.PATTERN_MEDIUM
-            }
-            Prefs.setPatternKey(this, key)
-            Protocol.logEvent(
-                "{\"t\":\"settings\",\"key\":\"vib_pattern\",\"value\":\"$key\"}"
-            )
-            vibratorController.previewOnce()   // v3.17：點選即預覽（CALLING 中自動跳過）
-        }
-    }
-
-    /** v1.0.3：Pulsar 震動模式（16 選項＝自訂節奏＋15 種 Pulsar 預設；點選即預覽）。 */
+    /** v1.0.3d：Pulsar 震動模式（15 種；原「自訂節奏」與「震動節奏」列已移除——模式＋強度即足夠）。 */
     private fun setupPulsarGroup() {
         val group = findViewById<RadioGroup>(R.id.pulsar_group)
+        // v1.0.3d：舊值/空值（自訂節奏）→ 自動改為預設 alarm
         val saved = Prefs.getPulsarPreset(this)
-        val buttons = mutableMapOf<RadioButton, String>()
-
-        val custom = RadioButton(this).apply {
-            id = View.generateViewId()
-            text = getString(R.string.settings_pulsar_custom)
-            setTextColor(getColor(R.color.text_primary))
-            textSize = 12f
+        val effective = if (PulsarPresets.ITEMS.any { it.key == saved }) saved else {
+            Prefs.setPulsarPreset(this, "alarm")
+            "alarm"
         }
-        group.addView(custom)
-        buttons[custom] = ""
-        if (saved.isEmpty()) custom.isChecked = true
+        val buttons = mutableMapOf<RadioButton, String>()
 
         PulsarPresets.ITEMS.forEach { item ->
             val rb = RadioButton(this).apply {
@@ -154,7 +123,7 @@ class SettingsActivity : Activity() {
             }
             group.addView(rb)
             buttons[rb] = item.key
-            if (saved == item.key) rb.isChecked = true
+            if (effective == item.key) rb.isChecked = true
         }
 
         // 監聽器在所有選項建立後才掛（避免程式化設定 isChecked 觸發預覽）

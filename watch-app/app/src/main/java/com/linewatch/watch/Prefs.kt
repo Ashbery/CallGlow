@@ -58,9 +58,9 @@ object Prefs {
         prefs(context).edit().putString(KEY_VIB_MODE, value).apply()
     }
 
-    /** v1.0.3：Pulsar 震動模式（""＝自訂節奏；其餘＝PulsarPresets.ITEMS 的 key）。 */
+    /** v1.0.3：Pulsar 震動模式（""＝自訂節奏；其餘＝PulsarPresets.ITEMS 的 key）。v1.0.3d：預設 alarm。 */
     fun getPulsarPreset(context: Context): String =
-        prefs(context).getString(KEY_PULSAR, "") ?: ""
+        prefs(context).getString(KEY_PULSAR, "alarm") ?: "alarm"
 
     fun setPulsarPreset(context: Context, value: String) {
         prefs(context).edit().putString(KEY_PULSAR, value).apply()

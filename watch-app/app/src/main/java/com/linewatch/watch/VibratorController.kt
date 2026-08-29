@@ -35,6 +35,12 @@ class VibratorController(private val context: Context) {
     @Volatile
     private var mode = Mode.IDLE
 
+    // v1.0.3d：預覽防切斷（快速連點不會砍掉正在播的長預設）
+    @Volatile
+    private var lastPreviewKey = ""
+    @Volatile
+    private var lastPreviewAt = 0L
+
     /** 來電震動。已在循環中 → 直接忽略（重入保護），回傳 false。 */
     fun startCall(): Boolean {
         synchronized(lock) {
@@ -160,7 +166,15 @@ class VibratorController(private val context: Context) {
             if (!vibrator.hasVibrator()) return true
             val pulsarKey = Prefs.getPulsarPreset(context)
             if (pulsarKey.isNotEmpty()) {
-                // v1.0.3：Pulsar 模式單次預覽
+                // v1.0.3d：同預設播放中（時長＋200ms）→ 忽略連點，避免切斷長震動
+                val now = android.os.SystemClock.uptimeMillis()
+                if (lastPreviewKey == pulsarKey &&
+                    now - lastPreviewAt < PulsarPresets.durationMs(pulsarKey) + 200L
+                ) {
+                    return true
+                }
+                lastPreviewKey = pulsarKey
+                lastPreviewAt = now
                 try {
                     PulsarPresets.playOnce(pulsar, pulsarKey)
                 } catch (e: Exception) {

@@ -137,3 +137,15 @@ autosize 12–28sp 自動縮放至屏寬 70% 內，min 12sp 可容納約 20 字�
 3. 裝置端檔案日誌（watch/phone 皆新增 LogFile）：<externalFilesDir>/logs/yyyyMMdd.log，
    一律寫入（不受 setprop 開關影響），保留 3 天＋總量 8MB 安全上限，逾齡/超量自動刪最舊；
    adb pull /sdcard/Android/data/<pkg>/files/logs/ 可取回。
+
+## D21 Pulsar 震動模式庫＋手勢修正 — 2026-08-29（使用者指定）
+1. 震動模式：原「系統預定義效果 4 種」（v3.17）由 **Pulsar（com.swmansion:pulsar 1.3.0，MIT）15 種預設**取代
+   （alarm/buzz/clamor/charge/crescendo/bassDrop/canter/cadence/chime/bellToll/barrage/catPaw/dewdrop/cascade/explosion）；
+   Settings「震動模式」16 選項（含自訂節奏）；來電循環＝預設時長＋150ms 重發；重掛/預覽即時生效。
+2. D6「純 AOSP」部分鬆綁：pulsar 傳遞依賴 androidx.core/appcompat/material/kotlinx-serialization
+   → 啟用 android.useAndroidX、compileSdk 36、AGP 8.9.1、Gradle 8.13（watch 端）；APK 4.86MB→14.4MB。
+   仍無 GMS、無 androidx.wear。
+3. 服務端 Context 適配：Pulsar.getPresets() 內部以「context as Activity」建立 ActivityProvider →
+   子類別 WatchPulsar 覆寫 createPresets() 用可空 ActivityProvider（view-based presets 不需 Activity）。
+4. 手勢修正：右滑關閉改「嚴格橫向主導」（跟手門檻 dx≥40 且 |dy|≤dx；關閉門檻 dx≥80 且 |dy|≤dx×0.3），
+   螢幕中間往下滑不再誤觸關閉（Activity/Overlay/Settings 三處同步）。

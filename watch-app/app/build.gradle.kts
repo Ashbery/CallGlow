@@ -5,14 +5,14 @@ plugins {
 
 android {
     namespace = "com.linewatch.watch"
-    compileSdk = 34
+    compileSdk = 36   // v1.0.3：Pulsar 的 androidx.core 1.17 需要
 
     defaultConfig {
         applicationId = "com.linewatch.watch"
         minSdk = 30
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.0.2"
+        versionCode = 4
+        versionName = "1.0.3"
     }
 
     buildTypes {
@@ -38,5 +38,6 @@ android {
 }
 
 dependencies {
-    // 純 AOSP（docs/decisions.md D6）：不引入 androidx 與 GMS
+    // v1.0.3：Pulsar 震動模式庫（com.swmansion:pulsar 1.3.0，MIT）——依賴庫要求，D6「純 AOSP」部分鬆綁（見 decisions D21）
+    implementation("com.swmansion:pulsar:1.3.0")
 }

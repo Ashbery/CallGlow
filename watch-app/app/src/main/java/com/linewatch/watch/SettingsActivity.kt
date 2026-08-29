@@ -13,7 +13,6 @@ import android.view.View
 import android.widget.Button
 import android.widget.RadioButton
 import android.widget.RadioGroup
-import android.widget.Switch
 import android.widget.TextView
 
 /**
@@ -50,7 +49,7 @@ class SettingsActivity : Activity() {
         bindViews()
         setupStrengthGroup()
         setupPatternGroup()
-        setupVibModeGroup()
+        setupPulsarGroup()
         setupButtons()
         setupSwipeDismiss()
         refreshBtStatus()
@@ -130,43 +129,42 @@ class SettingsActivity : Activity() {
         }
     }
 
-    private fun setupVibModeGroup() {
-        val sw = findViewById<Switch>(R.id.switch_system_effect)
-        val group = findViewById<RadioGroup>(R.id.vib_mode_group)
-        val click = findViewById<RadioButton>(R.id.mode_click)
-        val doubleClick = findViewById<RadioButton>(R.id.mode_double_click)
-        val tick = findViewById<RadioButton>(R.id.mode_tick)
-        val heavy = findViewById<RadioButton>(R.id.mode_heavy_click)
+    /** v1.0.3：Pulsar 震動模式（16 選項＝自訂節奏＋15 種 Pulsar 預設；點選即預覽）。 */
+    private fun setupPulsarGroup() {
+        val group = findViewById<RadioGroup>(R.id.pulsar_group)
+        val saved = Prefs.getPulsarPreset(this)
+        val buttons = mutableMapOf<RadioButton, String>()
 
-        sw.isChecked = Prefs.getUseSystemEffect(this)
-        when (Prefs.getVibMode(this)) {
-            Prefs.MODE_DOUBLE_CLICK -> doubleClick.isChecked = true
-            Prefs.MODE_TICK -> tick.isChecked = true
-            Prefs.MODE_HEAVY_CLICK -> heavy.isChecked = true
-            else -> click.isChecked = true   // 預設短按
+        val custom = RadioButton(this).apply {
+            id = View.generateViewId()
+            text = getString(R.string.settings_pulsar_custom)
+            setTextColor(getColor(R.color.text_primary))
+            textSize = 12f
         }
-        group.visibility = if (sw.isChecked) View.VISIBLE else View.GONE
+        group.addView(custom)
+        buttons[custom] = ""
+        if (saved.isEmpty()) custom.isChecked = true
 
-        sw.setOnCheckedChangeListener { _, checked ->
-            Prefs.setUseSystemEffect(this, checked)
-            group.visibility = if (checked) View.VISIBLE else View.GONE
-            Protocol.logEvent(
-                "{\"t\":\"settings\",\"key\":\"use_system_effect\",\"value\":$checked}"
-            )
-        }
-
-        group.setOnCheckedChangeListener { _, checkedId ->
-            val value = when (checkedId) {
-                R.id.mode_double_click -> Prefs.MODE_DOUBLE_CLICK
-                R.id.mode_tick -> Prefs.MODE_TICK
-                R.id.mode_heavy_click -> Prefs.MODE_HEAVY_CLICK
-                else -> Prefs.MODE_CLICK
+        PulsarPresets.ITEMS.forEach { item ->
+            val rb = RadioButton(this).apply {
+                id = View.generateViewId()
+                text = "${item.labelZh} ${item.labelEn}"
+                setTextColor(getColor(R.color.text_primary))
+                textSize = 12f
             }
-            Prefs.setVibMode(this, value)
+            group.addView(rb)
+            buttons[rb] = item.key
+            if (saved == item.key) rb.isChecked = true
+        }
+
+        // 監聽器在所有選項建立後才掛（避免程式化設定 isChecked 觸發預覽）
+        group.setOnCheckedChangeListener { _, _ ->
+            val key = buttons.entries.firstOrNull { it.key.isChecked }?.value ?: ""
+            Prefs.setPulsarPreset(this, key)
             Protocol.logEvent(
-                "{\"t\":\"settings\",\"key\":\"vib_mode\",\"value\":\"$value\"}"
+                "{\"t\":\"settings\",\"key\":\"vib_pulsar\",\"value\":\"$key\"}"
             )
-            vibratorController.previewOnce()   // v3.17：點選即預覽
+            vibratorController.previewOnce()
         }
     }
 
@@ -231,10 +229,10 @@ class SettingsActivity : Activity() {
                 MotionEvent.ACTION_UP -> {
                     if (!dragging) return@setOnTouchListener false
                     dragging = false
-                    val dx = (ev.rawX - dragStartRawX).coerceAtLeast(0f)
+                    val dx = ev.rawX - dragStartRawX
                     val dy = ev.rawY - dragStartRawY
-                    val verticalInterference = kotlin.math.abs(dy) > dx * 0.5f
-                    if (!verticalInterference && dx >= 80f) {
+                    // v1.0.3：嚴格橫向主導（|dy| ≤ dx×0.3）才關閉
+                    if (dx >= 80f && kotlin.math.abs(dy) <= dx * 0.3f) {
                         Protocol.logEvent("{\"t\":\"swipe_dismiss\",\"src\":\"settings\"}")
                         finish()   // 系統右滑關閉過場自然接續
                     } else {

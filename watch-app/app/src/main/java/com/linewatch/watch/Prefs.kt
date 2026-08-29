@@ -15,6 +15,7 @@ object Prefs {
     private const val KEY_PATTERN = "vib_pattern"
     private const val KEY_VIB_MODE = "vib_mode"
     private const val KEY_USE_SYSTEM_EFFECT = "use_system_effect"
+    private const val KEY_PULSAR = "vib_pulsar"   // v1.0.3：Pulsar 震動模式（""＝自訂節奏）
 
     // 震動強度（振幅 0-255）：弱 100 / 中 150 預設 / 強 200
     const val STRENGTH_WEAK = 100
@@ -55,6 +56,14 @@ object Prefs {
 
     fun setVibMode(context: Context, value: String) {
         prefs(context).edit().putString(KEY_VIB_MODE, value).apply()
+    }
+
+    /** v1.0.3：Pulsar 震動模式（""＝自訂節奏；其餘＝PulsarPresets.ITEMS 的 key）。 */
+    fun getPulsarPreset(context: Context): String =
+        prefs(context).getString(KEY_PULSAR, "") ?: ""
+
+    fun setPulsarPreset(context: Context, value: String) {
+        prefs(context).edit().putString(KEY_PULSAR, value).apply()
     }
 
     /** v3.17：是否使用系統震動效果（false＝自訂節奏，預設）。 */

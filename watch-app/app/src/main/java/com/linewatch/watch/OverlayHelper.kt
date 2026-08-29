@@ -303,7 +303,13 @@ object OverlayHelper {
                         springBackX()
                         return@setOnTouchListener true
                     }
-                    val dx = (ev.rawX - dragStartRawX).coerceAtLeast(0f)
+                    val rawDx = ev.rawX - dragStartRawX
+                    val dy = ev.rawY - dragStartRawY
+                    // v1.0.3：只有明顯水平向右才跟手；垂直主導完全不動、不觸發關閉
+                    if (rawDx < 40f || kotlin.math.abs(dy) > rawDx) {
+                        return@setOnTouchListener true
+                    }
+                    val dx = rawDx.coerceAtLeast(0f)
                     val damped = if (dx > 160f) 160f + (dx - 160f) * 0.6f else dx
                     // 節流：避免每事件 IPC（dx 變化 ≥8px 或 ≥16ms 才 updateViewLayout）
                     val now = android.os.SystemClock.uptimeMillis()
@@ -317,10 +323,10 @@ object OverlayHelper {
                 MotionEvent.ACTION_UP -> {
                     if (!dragging) return@setOnTouchListener true
                     dragging = false
-                    val dx = (ev.rawX - dragStartRawX).coerceAtLeast(0f)
+                    val dx = ev.rawX - dragStartRawX
                     val dy = ev.rawY - dragStartRawY
-                    val verticalInterference = kotlin.math.abs(dy) > dx * 0.5f
-                    if (!verticalInterference && dx >= 80f) {
+                    // v1.0.3：嚴格橫向主導（|dy| ≤ dx×0.3）才關閉
+                    if (dx >= 80f && kotlin.math.abs(dy) <= dx * 0.3f) {
                         flyOutOverlayX()
                     } else {
                         springBackX()

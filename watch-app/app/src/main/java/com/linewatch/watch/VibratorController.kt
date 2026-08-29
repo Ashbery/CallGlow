@@ -7,11 +7,11 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 
 /**
- * 震動控制（docs/decisions.md D4 + ui-spec v3.16）：
- * - 來電：自訂節奏三檔（Prefs 即時讀取）無限循環；或系統預定義效果（CLICK/DOUBLE_CLICK/TICK/HEAVY_CLICK）
- *   以 700ms 週期重發循環（CALLING 期間）；end → 立即 cancel()＋停止重發
+ * 震動控制（docs/decisions.md D4 + ui-spec v3.16/v1.0.3）：
+ * - 來電：自訂節奏三檔（Prefs 即時讀取）無限循環；或 Pulsar 預設（v1.0.3，15 種）
+ *   以「預設時長＋150ms」週期重發循環（CALLING 期間）；end → 立即 cancel()＋停止重發
  * - 未接：[300,200,300] 單次不循環（D4 固定）；強度同 Prefs
- * - 震動強度：弱 100 / 中 150 預設 / 強 200（振幅），Prefs 即時讀取
+ * - 震動強度：弱 100 / 中 150 預設 / 強 200（振幅），Prefs 即時讀取（Pulsar 預設自帶振幅，不受強度影響）
  * - 重入保護：同一時間只有一組震動；震動啟動/停止成對
  */
 class VibratorController(private val context: Context) {
@@ -27,6 +27,7 @@ class VibratorController(private val context: Context) {
     }
 
     private val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+    private val pulsar by lazy { WatchPulsar(context) }   // v1.0.3：Pulsar 播放器（服務端 Context 適配）
     private val lock = Any()
     private val repeatHandler = Handler(Looper.getMainLooper())
     private var repeatRunnable: Runnable? = null
@@ -40,6 +41,14 @@ class VibratorController(private val context: Context) {
             if (mode == Mode.CALLING) return false
             if (!vibrator.hasVibrator()) {
                 mode = Mode.CALLING
+                return true
+            }
+            // v1.0.3：Pulsar 模式優先（循環重發）；空值 → 原有自訂節奏/系統效果
+            val pulsarKey = Prefs.getPulsarPreset(context)
+            if (pulsarKey.isNotEmpty()) {
+                startPulsarLoop(pulsarKey)
+                mode = Mode.CALLING
+                anyCalling = true
                 return true
             }
             val useSystem = Prefs.getUseSystemEffect(context)
@@ -120,6 +129,15 @@ class VibratorController(private val context: Context) {
         synchronized(lock) {
             if (mode != Mode.CALLING) return
             if (!vibrator.hasVibrator()) return
+            val pulsarKey = Prefs.getPulsarPreset(context)
+            if (pulsarKey.isNotEmpty()) {
+                // v1.0.3：Pulsar 模式 → 立即重播一次（循環 tick 依時長自動續發）
+                try {
+                    PulsarPresets.playOnce(pulsar, pulsarKey)
+                } catch (e: Exception) {
+                }
+                return
+            }
             val useSystem = Prefs.getUseSystemEffect(context)
             val vibMode = Prefs.getVibMode(context)
             if (!useSystem || vibMode.isEmpty()) {
@@ -140,6 +158,15 @@ class VibratorController(private val context: Context) {
         synchronized(lock) {
             if (anyCalling) return false
             if (!vibrator.hasVibrator()) return true
+            val pulsarKey = Prefs.getPulsarPreset(context)
+            if (pulsarKey.isNotEmpty()) {
+                // v1.0.3：Pulsar 模式單次預覽
+                try {
+                    PulsarPresets.playOnce(pulsar, pulsarKey)
+                } catch (e: Exception) {
+                }
+                return true
+            }
             val useSystem = Prefs.getUseSystemEffect(context)
             val vibMode = Prefs.getVibMode(context)
             if (useSystem && vibMode.isNotEmpty()) {
@@ -166,5 +193,25 @@ class VibratorController(private val context: Context) {
     private fun stopRepeatLoop() {
         repeatRunnable?.let { repeatHandler.removeCallbacks(it) }
         repeatRunnable = null
+    }
+
+    /** v1.0.3：Pulsar 預設循環（預設時長＋150ms 間隔重發；ColorOS 息屏取消後下一個 tick 自然續發）。 */
+    private fun startPulsarLoop(key: String) {
+        stopRepeatLoop()
+        val interval = PulsarPresets.durationMs(key) + 150L
+        val runnable = object : Runnable {
+            override fun run() {
+                if (mode == Mode.CALLING && vibrator.hasVibrator()) {
+                    try {
+                        PulsarPresets.playOnce(pulsar, key)
+                    } catch (e: Exception) {
+                        Protocol.logD("pulsar play failed: $e")
+                    }
+                    repeatHandler.postDelayed(this, interval)
+                }
+            }
+        }
+        repeatRunnable = runnable
+        repeatHandler.post(runnable)
     }
 }

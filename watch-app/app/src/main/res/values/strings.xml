@@ -40,6 +40,8 @@
 
     <!-- v3.17 震動模式 -->
     <string name="settings_use_system_effect">使用系統震動效果</string>
+    <string name="settings_pulsar_label">震動模式（Pulsar 15 種，點選即預覽）</string>
+    <string name="settings_pulsar_custom">自訂節奏（原有三檔）</string>
     <string name="settings_mode_click">短按（CLICK）</string>
     <string name="settings_mode_double_click">雙擊（DOUBLE_CLICK）</string>
     <string name="settings_mode_tick">滴答（TICK）</string>

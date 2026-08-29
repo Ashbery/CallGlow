@@ -542,7 +542,14 @@ class IncomingCallActivity : Activity() {
                         springBack(v)
                         return@setOnTouchListener true
                     }
-                    val dx = (ev.rawX - dragStartRawX).coerceAtLeast(0f)
+                    val rawDx = ev.rawX - dragStartRawX
+                    val dy = ev.rawY - dragStartRawY
+                    // v1.0.3：只有明顯水平向右才跟手；垂直主導（含螢幕中間往下滑）完全不動、不觸發關閉
+                    if (rawDx < 40f || kotlin.math.abs(dy) > rawDx) {
+                        if (v.translationX != 0f) springBack(v)
+                        return@setOnTouchListener true
+                    }
+                    val dx = rawDx.coerceAtLeast(0f)
                     v.translationX = damp(dx)
                     v.alpha = 1f - (dx.coerceAtMost(160f) / 160f) * 0.75f
                     true
@@ -550,10 +557,10 @@ class IncomingCallActivity : Activity() {
                 MotionEvent.ACTION_UP -> {
                     if (!dragging) return@setOnTouchListener true
                     dragging = false
-                    val dx = (ev.rawX - dragStartRawX).coerceAtLeast(0f)
+                    val dx = ev.rawX - dragStartRawX
                     val dy = ev.rawY - dragStartRawY
-                    val verticalInterference = kotlin.math.abs(dy) > dx * 0.5f
-                    if (!verticalInterference && dx >= 80f) {
+                    // v1.0.3：嚴格橫向主導（|dy| ≤ dx×0.3）才關閉——下弧線滑動不再誤觸
+                    if (dx >= 80f && kotlin.math.abs(dy) <= dx * 0.3f) {
                         // v3.12：直接 finish()，不加自訂飛出 → 系統右滑關閉過場自然接續
                         handleSwipeDismiss()
                     } else {

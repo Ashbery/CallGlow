@@ -121,7 +121,7 @@ echo.
 echo  ============================================================
 echo   [1/5] 安裝手機端 APP……
 echo  ============================================================
-call adb -s !PH! install -r "%~dp0CallGlow-Phone-v1.0.2.apk" || (echo [失敗] 手機 APK 安裝失敗 & pause & exit /b 1)
+call adb -s !PH! install -r "%~dp0CallGlow-Phone-v1.0.3.apk" || (echo [失敗] 手機 APK 安裝失敗 & pause & exit /b 1)
 echo    [OK] 手機端已安裝
 call adb -s !PH! shell settings put system adb_install_enabled 1 >nul 2>nul
 call adb -s !PH! shell pm grant com.linewatch.phone android.permission.BLUETOOTH_SCAN >nul 2>nul
@@ -154,7 +154,7 @@ if errorlevel 1 (
 echo  ============================================================
 echo   [3/5] 安裝手錶端 APP……
 echo  ============================================================
-call adb -s !WT! install -r "%~dp0CallGlow-Watch-v1.0.2.apk" || (echo [失敗] 手錶 APK 安裝失敗 & pause & exit /b 1)
+call adb -s !WT! install -r "%~dp0CallGlow-Watch-v1.0.3.apk" || (echo [失敗] 手錶 APK 安裝失敗 & pause & exit /b 1)
 echo    [OK] 手錶端已安裝
 
 echo  ============================================================

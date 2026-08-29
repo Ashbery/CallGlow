@@ -108,54 +108,19 @@
                 android:textSize="12sp" />
         </RadioGroup>
 
-        <Switch
-            android:id="@+id/switch_system_effect"
+        <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="@string/settings_use_system_effect"
-            android:textColor="@color/text_primary"
+            android:text="@string/settings_pulsar_label"
+            android:textColor="@color/text_secondary"
             android:textSize="12sp" />
 
         <RadioGroup
-            android:id="@+id/vib_mode_group"
+            android:id="@+id/pulsar_group"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone">
-
-            <RadioButton
-                android:id="@+id/mode_click"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/settings_mode_click"
-                android:textColor="@color/text_primary"
-                android:textSize="12sp" />
-
-            <RadioButton
-                android:id="@+id/mode_double_click"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/settings_mode_double_click"
-                android:textColor="@color/text_primary"
-                android:textSize="12sp" />
-
-            <RadioButton
-                android:id="@+id/mode_tick"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/settings_mode_tick"
-                android:textColor="@color/text_primary"
-                android:textSize="12sp" />
-
-            <RadioButton
-                android:id="@+id/mode_heavy_click"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/settings_mode_heavy_click"
-                android:textColor="@color/text_primary"
-                android:textSize="12sp" />
-        </RadioGroup>
+            android:orientation="vertical" />
 
         <Button
             android:id="@+id/btn_test_call"

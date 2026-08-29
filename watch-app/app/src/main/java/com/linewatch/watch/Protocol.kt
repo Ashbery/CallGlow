@@ -20,18 +20,21 @@ object Protocol {
      */
     private val logsVisible: Boolean get() = Log.isLoggable(LOG_TAG, Log.DEBUG)
 
-    /** 關鍵事件 log：單行完整 JSON。測試驗收全靠 logcat，勿改 tag。 */
+    /** 關鍵事件 log：單行完整 JSON。logcat 受執行期開關；檔案日誌 v1.0.2 起一律寫入。 */
     fun logEvent(message: String) {
+        LogFile.write("E", message)
         if (logsVisible) Log.i(LOG_TAG, message)
     }
 
-    /** 常態資訊日誌（執行期開關）。 */
+    /** 常態資訊日誌。 */
     fun logI(message: String) {
+        LogFile.write("I", message)
         if (logsVisible) Log.i(LOG_TAG, message)
     }
 
-    /** 常態除錯日誌（執行期開關）。 */
+    /** 常態除錯日誌。 */
     fun logD(message: String) {
+        LogFile.write("D", message)
         if (logsVisible) Log.d(LOG_TAG, message)
     }
 

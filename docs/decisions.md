@@ -127,3 +127,13 @@ autosize 12–28sp 自動縮放至屏寬 70% 內，min 12sp 可容納約 20 字�
 4. （v1.0.1b）接聽／掛斷／未接**不再中止頭像傳輸**（手機端 sendEnd／missed 補送、手錶端
    endCall／IDLE-missed 皆移除 abort）→ 快速接聽時頭像仍自然完成並寫入快取，下一通同人秒顯；
    新 av_start／5s 逾時／BLE 斷線仍負責清理半截 session。
+
+## D20 頭像備援快取＋裝置端檔案日誌＋快取 500MB — 2026-08-18（使用者裁決）
+1. 快取上限由 1MB 改為 **500MB**（使用者明示；每張 ≤12KB ≈ 4 萬人，實務上等同不會淘汰）；
+   索引安全上限 50,000 筆防病態。
+2. 手機端新增「上次成功頭像」備援快取（filesDir/avatar_last/<sha16(name)>.jpg，LRU 20）：
+   LINE 通知當次未附 largeIcon/pic 時，自動以該名字上次成功送出的 JPEG 補送（鍵＝截斷後名字，
+   與手錶端一致）→ 解決「整天讀不到頭像、隔天恢復」的間歇問題（源頭是 LINE 端附圖不穩定）。
+3. 裝置端檔案日誌（watch/phone 皆新增 LogFile）：<externalFilesDir>/logs/yyyyMMdd.log，
+   一律寫入（不受 setprop 開關影響），保留 3 天＋總量 8MB 安全上限，逾齡/超量自動刪最舊；
+   adb pull /sdcard/Android/data/<pkg>/files/logs/ 可取回。

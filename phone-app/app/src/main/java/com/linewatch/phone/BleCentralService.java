@@ -143,6 +143,7 @@ public class BleCentralService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        LogFile.init(this);   // v1.0.2：檔案日誌
         instance = this;
         workerThread = new HandlerThread("ble-worker");
         workerThread.start();

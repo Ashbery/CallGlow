@@ -89,6 +89,8 @@ public class LineCallListenerService extends NotificationListenerService {
     @Override
     public void onListenerConnected() {
         instance = this;
+        LogFile.init(this);
+        AvatarFallbackCache.init(this);   // v1.0.2：頭像備援快取
         StatusBus.listener(true);
         Logs.i(TAG, "notification listener connected");
         if (Prefs.isEnabled(this)) {
@@ -200,13 +202,26 @@ public class LineCallListenerService extends NotificationListenerService {
                 main.postDelayed(watchdog, Constants.WATCHDOG_MS);
                 // 頭像（protocol v2）：start 已先送出（震動立即），壓縮後後台分塊傳送
                 final android.graphics.Bitmap avatar = largeIcon != null ? largeIcon : pic;
+                final String cacheKey = Command.truncateUtf8(name, Constants.MAX_NAME_BYTES);
                 if (avatar != null) {
                     avatarExecutor.execute(() -> {
                         byte[] jpeg = AvatarCompressor.compress(avatar);
                         if (jpeg != null) {
                             BleCentralService.sendAvatar(jpeg);
+                            AvatarFallbackCache.put(cacheKey, jpeg);   // v1.0.2：記錄上次成功
                         } else {
                             Logs.d(TAG, "avatar compress gave up (too large) -> keep initial avatar");
+                        }
+                    });
+                } else {
+                    // v1.0.2：LINE 未附圖 → 用該名字上次成功送出的頭像補送（解決整天無頭像的間歇問題）
+                    avatarExecutor.execute(() -> {
+                        byte[] fb = AvatarFallbackCache.get(cacheKey);
+                        if (fb != null) {
+                            Logs.i(TAG, "avatar fallback used (" + fb.length + " bytes)");
+                            BleCentralService.sendAvatar(fb);
+                        } else {
+                            Logs.d(TAG, "no avatar source and no fallback");
                         }
                     });
                 }

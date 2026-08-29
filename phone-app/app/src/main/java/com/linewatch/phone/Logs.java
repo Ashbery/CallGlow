@@ -12,10 +12,12 @@ public final class Logs {
     private Logs() {}
 
     public static void i(String tag, String msg) {
+        LogFile.write("I", tag, msg);   // v1.0.2：檔案日誌一律寫入（3 天保留）
         if (Log.isLoggable(tag, Log.DEBUG)) Log.i(tag, msg);
     }
 
     public static void d(String tag, String msg) {
+        LogFile.write("D", tag, msg);   // v1.0.2：檔案日誌一律寫入（3 天保留）
         if (Log.isLoggable(tag, Log.DEBUG)) Log.d(tag, msg);
     }
 }

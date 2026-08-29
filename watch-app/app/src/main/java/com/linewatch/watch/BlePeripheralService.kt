@@ -169,6 +169,7 @@ class BlePeripheralService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        LogFile.init(this)
         AvatarStore.init(this)
         // v3.10：overlay 下滑關閉 → 本地 endCall(false)（停震；不送 BLE，手機端不受影響）
         OverlayHelper.dismissListener = {

@@ -15,16 +15,6 @@
         android:padding="24dp">
 
         <TextView
-            android:id="@+id/btn_back"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="start"
-            android:padding="8dp"
-            android:text="‹ 返回"
-            android:textColor="@color/line_green"
-            android:textSize="16sp" />
-
-        <TextView
             android:id="@+id/bt_status"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

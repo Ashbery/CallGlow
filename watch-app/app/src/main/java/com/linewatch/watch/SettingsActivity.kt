@@ -36,9 +36,12 @@ class SettingsActivity : Activity() {
     private var dragStartRawY = 0f
     private var dragging = false
     private var edgeArmed = false
+    private var downEventTime = 0L
 
     companion object {
         private const val EDGE_ZONE_PX = 110f
+        /** v1.0.3j：甩動速度門檻（px/ms）——慢速滑動永不觸發返回，只有快速甩動才算。 */
+        private const val FLING_VELOCITY_PX_PER_MS = 1.2f
     }
 
 
@@ -188,6 +191,7 @@ class SettingsActivity : Activity() {
                     dragStartRawY = ev.rawY
                     edgeArmed = ev.rawX <= EDGE_ZONE_PX
                     dragging = false
+                    downEventTime = ev.eventTime
                     false   // 不攔截 DOWN：ScrollView 垂直滾動正常
                 }
                 MotionEvent.ACTION_MOVE -> {
@@ -211,9 +215,14 @@ class SettingsActivity : Activity() {
                     dragging = false
                     val dx = ev.rawX - dragStartRawX
                     val dy = ev.rawY - dragStartRawY
-                    if (edgeArmed && dx >= 100f && kotlin.math.abs(dy) <= dx * 0.4f) {
+                    // v1.0.3j：甩動速度門檻（使用者裁決「快速甩動才返回」）
+                    val dur = ev.eventTime - downEventTime
+                    val velocity = if (dur > 0) dx / dur else 0f
+                    if (edgeArmed && dx >= 100f && kotlin.math.abs(dy) <= dx * 0.4f &&
+                        velocity >= FLING_VELOCITY_PX_PER_MS
+                    ) {
                         Protocol.logEvent(
-                            "{\"t\":\"swipe_dismiss\",\"src\":\"settings\",\"dx\":${dx.toInt()},\"dy\":${dy.toInt()},\"startX\":${dragStartRawX.toInt()}}"
+                            "{\"t\":\"swipe_dismiss\",\"src\":\"settings\",\"dx\":${dx.toInt()},\"dy\":${dy.toInt()},\"startX\":${dragStartRawX.toInt()},\"vel\":${(velocity * 100).toInt()}}"
                         )
                         finish()
                     } else {

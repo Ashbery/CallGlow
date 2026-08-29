@@ -160,3 +160,8 @@ autosize 12–28sp 自動縮放至屏寬 70% 內，min 12sp 可容納約 20 字�
 8. （v1.0.3d 使用者要求）UI 簡化：移除「震動節奏」（急促/適中/長震）與「自訂節奏」選項——模式（15 種
    Pulsar）＋強度即足夠；Pulsar 預設內建振幅，強度作用於未接震動；預設模式改 alarm。
    另實測發現快速連點會切斷長預設（charge 2s 被 0.7s 後的下一次預覽取代）→ 預覽防切斷。
+9. （v1.0.3e 根因）「下滑/右上滑誤關」根因＝**自訂滑動偵測**；系統 HeyTap 手勢只對白名單 App 生效
+   （heytap_gesture_enable_app_list，本 App 原不在內）。解法：a) install.bat 自動把
+   com.linewatch.watch 加入白名單（adb 一次設定）；b) **移除全部自訂滑動偵測**（Settings/來電/浮層），
+   返回統一走系統手勢；c) 來電畫面 hideSystemBars 改只隱藏狀態列（保留手勢區）＋CALLING 中
+   onBackPressed 忽略（系統返回不會關掉來電畫面）；未接/斷線由 8s 自動關或系統返回關閉。

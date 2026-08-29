@@ -13,7 +13,6 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.util.TypedValue
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -49,13 +48,7 @@ object OverlayHelper {
     var dismissListener: (() -> Unit)? = null
 
     private var overlayParams: WindowManager.LayoutParams? = null
-    private var dragStartRawX = 0f
-    private var dragStartRawY = 0f
-    private var dragging = false
-    private var dragAnimator: ValueAnimator? = null
     private var currentMode: Mode? = null
-    private var lastOverlayX = Float.MAX_VALUE
-    private var lastMoveMs = 0L
     private var contentContainer: LinearLayout? = null
     private var overlayWm: WindowManager? = null
     private var dismissRunnable: Runnable? = null
@@ -189,8 +182,6 @@ object OverlayHelper {
         cancelRingAnimators()
         overlayAurora?.stop()
         overlayHalo?.stop()
-        dragAnimator?.cancel()
-        dragAnimator = null
         dismissRunnable?.let { handler.removeCallbacks(it) }
         dismissRunnable = null
         root?.let { v ->
@@ -216,62 +207,7 @@ object OverlayHelper {
         overlayParams = null
     }
 
-    // ---------- v3.11 拖動視窗 ----------
-
-    private fun moveOverlayX(x: Float) {
-        val p = overlayParams ?: return
-        val v = root ?: return
-        p.x = x.toInt()
-        try {
-            overlayWm?.updateViewLayout(v, p)
-        } catch (_: Exception) {
-        }
-    }
-
-    private fun springBackX() {
-        val from = overlayParams?.x ?: return
-        animateOverlayX(from, 0, 200L, onEnd = {
-            // 彈回結束：移除 GPU 圖層＋CALL 態恢復星空/漣漪
-            root?.setLayerType(View.LAYER_TYPE_NONE, null)
-            if (currentMode == Mode.CALL) {
-                overlayStarfield?.startStars()
-                overlayRipple?.startRipples()
-            }
-        })
-    }
-
-    private fun flyOutOverlayX() {
-        val from = overlayParams?.x ?: 0
-        val target = android.content.res.Resources.getSystem().displayMetrics.widthPixels
-        animateOverlayX(from, target, 180L, onEnd = {
-            Protocol.logEvent("{\"t\":\"swipe_dismiss\",\"src\":\"overlay\"}")
-            dismiss()
-            dismissListener?.invoke()
-        })
-    }
-
-    private fun animateOverlayX(from: Int, to: Int, duration: Long, onEnd: (() -> Unit)?) {
-        dragAnimator?.cancel()
-        dragAnimator = ValueAnimator.ofInt(from, to).apply {
-            this.duration = duration
-            addUpdateListener { a ->
-                val p = overlayParams ?: return@addUpdateListener
-                val v = root ?: return@addUpdateListener
-                p.x = a.animatedValue as Int
-                try {
-                    overlayWm?.updateViewLayout(v, p)
-                } catch (_: Exception) {
-                }
-            }
-            addListener(object : android.animation.AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: android.animation.Animator) {
-                    dragAnimator = null
-                    onEnd?.invoke()
-                }
-            })
-            start()
-        }
-    }
+    // ---------- v1.0.3e：自訂滑動偵測已移除（系統 HeyTap 手勢負責返回） ----------
 
     // ---------- 內部 ----------
 
@@ -280,62 +216,6 @@ object OverlayHelper {
             setBackgroundResource(R.drawable.bg_round_black)   // v3.15：圓形黑卡（角落透明）
             clipChildren = false
             clipToPadding = false
-        }
-        // v3.11：拖動視窗——MOVE 以 updateViewLayout 跟手移動 params.y；UP ≥80px 飛出、否則回彈
-        frame.setOnTouchListener { v, ev ->
-            when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    dragStartRawX = ev.rawX
-                    dragStartRawY = ev.rawY
-                    dragging = true
-                    lastOverlayX = Float.MAX_VALUE
-                    lastMoveMs = 0L
-                    // v3.13：GPU 紋理快取＋暫停星空/漣漪
-                    v.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-                    overlayStarfield?.stopStars()
-                    overlayRipple?.stopRipples()
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (!dragging) return@setOnTouchListener true
-                    if (ev.pointerCount > 1) {
-                        dragging = false
-                        springBackX()
-                        return@setOnTouchListener true
-                    }
-                    val rawDx = ev.rawX - dragStartRawX
-                    val dy = ev.rawY - dragStartRawY
-                    // v1.0.3：只有明顯水平向右才跟手；垂直主導完全不動、不觸發關閉
-                    if (rawDx < 40f || kotlin.math.abs(dy) > rawDx) {
-                        return@setOnTouchListener true
-                    }
-                    val dx = rawDx.coerceAtLeast(0f)
-                    val damped = if (dx > 160f) 160f + (dx - 160f) * 0.6f else dx
-                    // 節流：避免每事件 IPC（dx 變化 ≥8px 或 ≥16ms 才 updateViewLayout）
-                    val now = android.os.SystemClock.uptimeMillis()
-                    if (kotlin.math.abs(damped - lastOverlayX) >= 8f || now - lastMoveMs >= 16L) {
-                        moveOverlayX(damped)
-                        lastOverlayX = damped
-                        lastMoveMs = now
-                    }
-                    true
-                }
-                MotionEvent.ACTION_UP -> {
-                    if (!dragging) return@setOnTouchListener true
-                    dragging = false
-                    val dx = ev.rawX - dragStartRawX
-                    val dy = ev.rawY - dragStartRawY
-                    // v1.0.3c：嚴格橫向主導（|dy| ≤ dx×0.25）才關閉
-                    if (dx >= 80f && kotlin.math.abs(dy) <= dx * 0.25f) {
-                        Protocol.logEvent("{\"t\":\"swipe_dismiss\",\"src\":\"overlay\",\"dx\":${dx.toInt()},\"dy\":${dy.toInt()}}")
-                        flyOutOverlayX()
-                    } else {
-                        springBackX()
-                    }
-                    true
-                }
-                else -> true
-            }
         }
         val starfield = StarfieldView(context)
         frame.addView(starfield, FrameLayout.LayoutParams(

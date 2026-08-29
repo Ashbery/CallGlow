@@ -180,6 +180,24 @@ if errorlevel 1 (
   echo    [OK] 白名單已加入
 )
 
+rem v1.0.3e：HeyTap 系統手勢白名單（讓系統「往右滑＝返回」在我們的 App 生效；往右滑不再誤關）
+set "GEST="
+for /f "usebackq delims=" %%G in (`call adb -s !WT! shell settings get system heytap_gesture_enable_app_list`) do set "GEST=%%G"
+echo !GEST! | findstr /c:"com.linewatch.watch" >nul
+if errorlevel 1 (
+  if "!GEST!"=="null" (set "NEWGEST=com.linewatch.watch") else (set "NEWGEST=!GEST!;com.linewatch.watch")
+  call adb -s !WT! shell settings put system heytap_gesture_enable_app_list "!NEWGEST!"
+)
+set "GEST2="
+for /f "usebackq delims=" %%G in (`call adb -s !WT! shell settings get system heytap_gesture_enable_app_list`) do set "GEST2=%%G"
+echo !GEST2! | findstr /c:"com.linewatch.watch" >nul
+if errorlevel 1 (
+  echo    [錯誤] 手勢白名單寫入失敗。可稍後重開機再跑一次本程式。
+  pause >nul
+) else (
+  echo    [OK] 系統手勢白名單已加入
+)
+
 echo  ============================================================
 echo   [5/5] 啟動手錶提醒服務……
 echo  ============================================================

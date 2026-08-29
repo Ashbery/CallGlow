@@ -11,7 +11,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.TypedValue
-import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -84,11 +83,7 @@ class IncomingCallActivity : Activity() {
     }
     private var uiState: String = Protocol.STATE_CALL
     private var avatarTint: Int = 0
-    private var dragStartRawX = 0f
-    private var dragStartRawY = 0f
-    private var dragging = false
-    private var lastDismissDx = 0
-    private var lastDismissDy = 0
+
 
     // D17.10：副標柔光呼吸（文字恆定，只有 shadow 光暈隨節拍擴散/收縮）
     private var subGlowRadius = 0f
@@ -170,7 +165,6 @@ class IncomingCallActivity : Activity() {
         hideSystemBars()
         bindViews()
         configureNameAutosize()
-        setupSwipeDismiss()
         // D15：receiver 註冊於 onCreate（息屏時 onStop 先跑 → 舊寫法收不到 HIDE_UI）
         val filter = IntentFilter(Protocol.ACTION_STATE)
         filter.addAction(Protocol.ACTION_AVATAR)
@@ -532,105 +526,14 @@ class IncomingCallActivity : Activity() {
         super.onBackPressed()
     }
 
-    // ---------- v3.11 下滑拖動視窗 ----------
-
-    /** 拖動視窗：MOVE 跟手（translationY＋alpha 漸降）；UP ≥80px 飛出、否則彈回。 */
-    private fun setupSwipeDismiss() {
-        val root = findViewById<View>(android.R.id.content)
-        root.setOnTouchListener { v, ev ->
-            when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    dragStartRawX = ev.rawX
-                    dragStartRawY = ev.rawY
-                    dragging = true
-                    // v3.13：GPU 紋理快取＋暫停星空/漣漪（避免 MOVE 每幀整樹重繪）
-                    v.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-                    starfieldBgView.stopStars()
-                    rippleView.stopRipples()
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (!dragging) return@setOnTouchListener true
-                    if (ev.pointerCount > 1) {
-                        // 多指 → 取消拖動並彈回
-                        dragging = false
-                        springBack(v)
-                        return@setOnTouchListener true
-                    }
-                    val rawDx = ev.rawX - dragStartRawX
-                    val dy = ev.rawY - dragStartRawY
-                    // v1.0.3：只有明顯水平向右才跟手；垂直主導（含螢幕中間往下滑）完全不動、不觸發關閉
-                    if (rawDx < 40f || kotlin.math.abs(dy) > rawDx) {
-                        if (v.translationX != 0f) springBack(v)
-                        return@setOnTouchListener true
-                    }
-                    val dx = rawDx.coerceAtLeast(0f)
-                    v.translationX = damp(dx)
-                    v.alpha = 1f - (dx.coerceAtMost(160f) / 160f) * 0.75f
-                    true
-                }
-                MotionEvent.ACTION_UP -> {
-                    if (!dragging) return@setOnTouchListener true
-                    dragging = false
-                    val dx = ev.rawX - dragStartRawX
-                    val dy = ev.rawY - dragStartRawY
-                    // v1.0.3c：嚴格橫向主導（|dy| ≤ dx×0.25）才關閉——下弧線滑動不再誤觸
-                    if (dx >= 80f && kotlin.math.abs(dy) <= dx * 0.25f) {
-                        lastDismissDx = dx.toInt()
-                        lastDismissDy = dy.toInt()
-                        // v3.12：直接 finish()，不加自訂飛出 → 系統右滑關閉過場自然接續
-                        handleSwipeDismiss()
-                    } else {
-                        springBack(v)
-                    }
-                    true
-                }
-                else -> true
-            }
-        }
-    }
-
-    /** dy>160px 後 0.6 阻尼。 */
-    private fun damp(dy: Float): Float =
-        if (dy > 160f) 160f + (dy - 160f) * 0.6f else dy
-
-    private fun springBack(v: View) {
-        v.animate()
-            .translationX(0f)
-            .alpha(1f)
-            .setDuration(200L)
-            .setInterpolator(android.view.animation.DecelerateInterpolator())
-            .withEndAction { restoreEffectsAfterDrag(v) }
-            .start()
-    }
-
-    /** 彈回結束：移除 GPU 圖層＋來電態恢復星空/漣漪。 */
-    private fun restoreEffectsAfterDrag(v: View) {
-        v.setLayerType(View.LAYER_TYPE_NONE, null)
-        if (uiState == Protocol.STATE_CALL) {
-            starfieldBgView.startStars()
-            rippleView.startRipples()
-        }
-    }
-
-    private fun handleSwipeDismiss() {
-        Protocol.logEvent("{\"t\":\"swipe_dismiss\",\"src\":\"activity\",\"dx\":$lastDismissDx,\"dy\":$lastDismissDy}")
-        handler.removeCallbacks(finishRunnable)   // 未接/斷線：取消 8s 自動關
-        if (uiState == Protocol.STATE_CALL) {
-            // 等同 watch 端 endCall(false)：本地停震＋關畫面；不送 BLE 指令，手機端來電不受影響
-            startService(
-                Intent(this, BlePeripheralService::class.java)
-                    .setAction(Protocol.ACTION_DEBUG_END)
-                    .putExtra("missed", false)
-            )
-        }
-        finish()
-    }
+    // ---------- v1.0.3e：自訂滑動偵測已移除 ----------
+    // 系統 HeyTap 手勢（heytap_gesture_enable_app_list 白名單，install.bat 自動加入）負責返回；
+    // CALLING 中由 onBackPressed 攔截保護（見上）；未接/斷線畫面由 8s 自動關或系統返回關閉。
 
     private fun hideSystemBars() {
+        // v1.0.3e：只隱藏狀態列；導覽列保留（系統 HeyTap 返回手勢需要手勢區）
         window.insetsController?.apply {
-            hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
-            systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsets.Type.statusBars())
         }
     }
 }

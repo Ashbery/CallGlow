@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.os.Bundle
+import android.view.MotionEvent
 import android.view.View
 import android.widget.Button
 import android.widget.RadioButton
@@ -30,6 +31,12 @@ class SettingsActivity : Activity() {
     private lateinit var strengthGroup: RadioGroup
     private val vibratorController by lazy { VibratorController(applicationContext) }
 
+    // v1.0.3f：左邊緣起手右滑返回（等同系統手勢；起手點必須在左緣 100px 內）
+    private var dragStartRawX = 0f
+    private var dragStartRawY = 0f
+    private var dragging = false
+    private var edgeArmed = false
+
     private val connReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == Protocol.ACTION_CONN_STATE) {
@@ -45,6 +52,7 @@ class SettingsActivity : Activity() {
         setupStrengthGroup()
         setupPulsarGroup()
         setupButtons()
+        setupSwipeDismiss()
         refreshBtStatus()
     }
 
@@ -161,8 +169,71 @@ class SettingsActivity : Activity() {
         }
     }
 
-    // v1.0.3e：自訂滑動偵測已移除——系統 HeyTap 手勢（heytap_gesture_enable_app_list 白名單，install.bat 自動加入）
-    // 負責返回；來電畫面另以 onBackPressed 保護。
+    // ---------- v1.0.3f 左邊緣右滑返回 ----------
+    // 此錶無系統邊緣返回手勢（HeyTap 手勢僅快捷啟動）→ 自訂實現，但起手點限定左緣 100px 內
+    // ＋嚴格水平（|dy|≤dx×0.25）——中間下滑/右上滑永遠不觸發
+
+    private fun setupSwipeDismiss() {
+        val root = findViewById<View>(R.id.settings_scroll)
+        root.setOnTouchListener { v, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    dragStartRawX = ev.rawX
+                    dragStartRawY = ev.rawY
+                    edgeArmed = ev.rawX <= EDGE_ZONE_PX
+                    dragging = false
+                    false   // 不攔截 DOWN：ScrollView 垂直滾動正常
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (!dragging) {
+                        val dx = ev.rawX - dragStartRawX
+                        val dy = ev.rawY - dragStartRawY
+                        // 左緣起手＋明顯水平向右才開始攔截
+                        if (edgeArmed && dx >= 40f && kotlin.math.abs(dy) <= dx) {
+                            dragging = true
+                            v.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                        } else {
+                            return@setOnTouchListener false
+                        }
+                    }
+                    val dx = (ev.rawX - dragStartRawX).coerceAtLeast(0f)
+                    v.translationX = dampDrag(dx)
+                    v.alpha = 1f - (dx.coerceAtMost(160f) / 160f) * 0.75f
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!dragging) return@setOnTouchListener false
+                    dragging = false
+                    val dx = ev.rawX - dragStartRawX
+                    val dy = ev.rawY - dragStartRawY
+                    if (edgeArmed && dx >= 100f && kotlin.math.abs(dy) <= dx * 0.25f) {
+                        Protocol.logEvent(
+                            "{\"t\":\"swipe_dismiss\",\"src\":\"settings\",\"dx\":${dx.toInt()},\"dy\":${dy.toInt()},\"startX\":${dragStartRawX.toInt()}}"
+                        )
+                        finish()
+                    } else {
+                        v.animate()
+                            .translationX(0f)
+                            .alpha(1f)
+                            .setDuration(200L)
+                            .setInterpolator(android.view.animation.DecelerateInterpolator())
+                            .withEndAction { v.setLayerType(View.LAYER_TYPE_NONE, null) }
+                            .start()
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+
+    private fun dampDrag(dx: Float): Float =
+        if (dx > 160f) 160f + (dx - 160f) * 0.6f else dx
+
+    companion object {
+        /** v1.0.3f：左緣手勢區寬度（px；466 寬螢幕約 21%）。 */
+        private const val EDGE_ZONE_PX = 100f
+    }
 
     private fun refreshBtStatus() {
         if (BlePeripheralService.bleConnected) {
